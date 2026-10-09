@@ -1,0 +1,28 @@
+Insurance AI Assistant
+----------------------
+
+				Java
+				 ↓
+				Spring Boot
+				 ↓
+				REST API
+				 ↓
+				PostgreSQL / MongoDB
+				 ↓
+				Kafka
+				 ↓
+				Microservices
+				 ↓
+				LLM API
+				 ↓
+				Spring AI
+				 ↓
+				Embeddings
+				 ↓
+				Vector DB
+				 ↓
+				RAG
+				 ↓
+				Tool Calling
+				 ↓
+				AI Agent
