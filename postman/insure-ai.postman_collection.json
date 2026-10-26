@@ -1,0 +1,1777 @@
+{
+  "info": {
+    "name": "Insure AI",
+    "description": "Local API collection for the Insure AI services.\n\n**Setup**\n1. Import this collection and `insure-ai.local.postman_environment.json`, then select the *Insure AI - Local* environment.\n2. Fill `callerClientId` and `callerClientSecret` in the environment (see `docs/keycloak.md`).\n3. Run *Auth > Get access token*, then any request. Creating a customer or quote stores `customerId` / `quoteId` for the following requests.\n\n**Default local ports**: Keycloak 8280, Quote Service 8281, Customer Service 8282.\n\n**Scopes**: `quote:create`, `quote:read`, `customer:create`, `customer:read`.\n\nEvery request sends a fresh `X-Correlation-Id`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.request.headers.upsert({ key: 'X-Correlation-Id', value: pm.variables.replaceIn('{{$guid}}') });"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "keycloakBaseUrl",
+      "value": "http://localhost:8280"
+    },
+    {
+      "key": "realm",
+      "value": "insure-ai"
+    },
+    {
+      "key": "quoteBaseUrl",
+      "value": "http://localhost:8281"
+    },
+    {
+      "key": "customerBaseUrl",
+      "value": "http://localhost:8282"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Keycloak token endpoint used by every other request.",
+      "item": [
+        {
+          "name": "Get access token (client credentials)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{keycloakBaseUrl}}/realms/{{realm}}/protocol/openid-connect/token",
+              "host": [
+                "{{keycloakBaseUrl}}"
+              ],
+              "path": [
+                "realms",
+                "{{realm}}",
+                "protocol",
+                "openid-connect",
+                "token"
+              ]
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "client_credentials",
+                  "type": "text"
+                },
+                {
+                  "key": "client_id",
+                  "value": "{{callerClientId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "client_secret",
+                  "value": "{{callerClientSecret}}",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "Obtains an access token from the local Keycloak realm using the client-credentials grant and stores it in the `accessToken` environment variable.\n\nPrerequisites (see `docs/keycloak.md`): a caller client whose access tokens carry the `quote-service` and `customer-service` audiences and the scopes `quote:create quote:read customer:create customer:read`. Fill `callerClientId` and `callerClientSecret` in the selected environment; never commit them."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Response contains an access token', function () {",
+                  "    pm.expect(body.access_token).to.be.a('string');",
+                  "});",
+                  "pm.environment.set('accessToken', body.access_token);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Customer Service",
+      "description": "Owns customer profiles. Default local address: `{{customerBaseUrl}}`.",
+      "item": [
+        {
+          "name": "Create customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{customerBaseUrl}}/api/v1/customers",
+              "host": [
+                "{{customerBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers"
+              ]
+            },
+            "description": "Creates a customer profile.\n\n- Required scope: `customer:create`\n- `fullName`: 2-80 characters\n- `email`: valid address, at most 254 characters (stored lower-cased)\n- `phone`: E.164, for example `+14155552671`\n- `dateOfBirth`: ISO date in the past\n\nResponses: `201` created, `400` `VALIDATION_FAILED` / `BAD_REQUEST`, `401` `UNAUTHENTICATED`, `403` `ACCESS_DENIED`, `500` `PERSISTENCE_FAILURE` / `INTERNAL_ERROR`.\n\nErrors use RFC 9457 Problem Details (`application/problem+json`) with a stable `code` and the request's `correlationId`. Send `X-Correlation-Id` (1-64 chars of `A-Za-z0-9._-`) to choose your own; otherwise one is generated and returned in the response header.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Jane Doe\",\n  \"email\": \"jane.doe@example.com\",\n  \"phone\": \"+14155552671\",\n  \"dateOfBirth\": \"1990-05-14\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{customerBaseUrl}}/api/v1/customers",
+                  "host": [
+                    "{{customerBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "customers"
+                  ]
+                },
+                "description": "Creates a customer profile.\n\n- Required scope: `customer:create`\n- `fullName`: 2-80 characters\n- `email`: valid address, at most 254 characters (stored lower-cased)\n- `phone`: E.164, for example `+14155552671`\n- `dateOfBirth`: ISO date in the past\n\nResponses: `201` created, `400` `VALIDATION_FAILED` / `BAD_REQUEST`, `401` `UNAUTHENTICATED`, `403` `ACCESS_DENIED`, `500` `PERSISTENCE_FAILURE` / `INTERNAL_ERROR`.\n\nErrors use RFC 9457 Problem Details (`application/problem+json`) with a stable `code` and the request's `correlationId`. Send `X-Correlation-Id` (1-64 chars of `A-Za-z0-9._-`) to choose your own; otherwise one is generated and returned in the response header.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fullName\": \"Jane Doe\",\n  \"email\": \"jane.doe@example.com\",\n  \"phone\": \"+14155552671\",\n  \"dateOfBirth\": \"1990-05-14\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"customerId\": \"3b241101-e2bb-4255-8caf-4136c566a962\",\n  \"fullName\": \"Jane Doe\",\n  \"email\": \"jane.doe@example.com\",\n  \"phone\": \"+14155552671\",\n  \"dateOfBirth\": \"1990-05-14\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Customer id returned', function () { pm.expect(body.customerId).to.be.a('string'); });",
+                  "pm.environment.set('customerId', body.customerId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get customer by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{customerBaseUrl}}/api/v1/customers/{{customerId}}",
+              "host": [
+                "{{customerBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers",
+                "{{customerId}}"
+              ]
+            },
+            "description": "Returns a customer profile.\n\n- Required scope: `customer:read`\n- `customerId` must be a UUID\n\nResponses: `200`, `400` `INVALID_CUSTOMER_REQUEST`, `401`, `403`, `404` `CUSTOMER_NOT_FOUND`.\n\nErrors use RFC 9457 Problem Details (`application/problem+json`) with a stable `code` and the request's `correlationId`. Send `X-Correlation-Id` (1-64 chars of `A-Za-z0-9._-`) to choose your own; otherwise one is generated and returned in the response header."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{customerBaseUrl}}/api/v1/customers/{{customerId}}",
+                  "host": [
+                    "{{customerBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "customers",
+                    "{{customerId}}"
+                  ]
+                },
+                "description": "Returns a customer profile.\n\n- Required scope: `customer:read`\n- `customerId` must be a UUID\n\nResponses: `200`, `400` `INVALID_CUSTOMER_REQUEST`, `401`, `403`, `404` `CUSTOMER_NOT_FOUND`.\n\nErrors use RFC 9457 Problem Details (`application/problem+json`) with a stable `code` and the request's `correlationId`. Send `X-Correlation-Id` (1-64 chars of `A-Za-z0-9._-`) to choose your own; otherwise one is generated and returned in the response header."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"customerId\": \"3b241101-e2bb-4255-8caf-4136c566a962\",\n  \"fullName\": \"Jane Doe\",\n  \"email\": \"jane.doe@example.com\",\n  \"phone\": \"+14155552671\",\n  \"dateOfBirth\": \"1990-05-14\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Customer id matches', function () {",
+                  "    pm.expect(pm.response.json().customerId).to.eql(pm.environment.get('customerId'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get customer - not found",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{customerBaseUrl}}/api/v1/customers/00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{customerBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            },
+            "description": "A well-formed UUID that does not exist returns `404` `CUSTOMER_NOT_FOUND`."
+          },
+          "response": [
+            {
+              "name": "404 Not Found",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{customerBaseUrl}}/api/v1/customers/00000000-0000-0000-0000-000000000000",
+                  "host": [
+                    "{{customerBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "customers",
+                    "00000000-0000-0000-0000-000000000000"
+                  ]
+                },
+                "description": "A well-formed UUID that does not exist returns `404` `CUSTOMER_NOT_FOUND`."
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/problem+json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Customer not found\",\n  \"status\": 404,\n  \"detail\": \"Customer 00000000-0000-0000-0000-000000000000 was not found\",\n  \"instance\": \"/api/v1/customers/00000000-0000-0000-0000-000000000000\",\n  \"code\": \"CUSTOMER_NOT_FOUND\",\n  \"correlationId\": \"3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('Problem Details code is CUSTOMER_NOT_FOUND', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.eql('CUSTOMER_NOT_FOUND');",
+                  "    pm.expect(body.correlationId).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get customer - invalid ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{customerBaseUrl}}/api/v1/customers/not-a-uuid",
+              "host": [
+                "{{customerBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers",
+                "not-a-uuid"
+              ]
+            },
+            "description": "A malformed `customerId` returns `400` `INVALID_CUSTOMER_REQUEST`."
+          },
+          "response": [
+            {
+              "name": "400 Bad Request",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{customerBaseUrl}}/api/v1/customers/not-a-uuid",
+                  "host": [
+                    "{{customerBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "customers",
+                    "not-a-uuid"
+                  ]
+                },
+                "description": "A malformed `customerId` returns `400` `INVALID_CUSTOMER_REQUEST`."
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/problem+json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Validation failed\",\n  \"status\": 400,\n  \"detail\": \"customerId must be a valid UUID\",\n  \"instance\": \"/api/v1/customers/not-a-uuid\",\n  \"code\": \"INVALID_CUSTOMER_REQUEST\",\n  \"correlationId\": \"3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('Problem Details code is INVALID_CUSTOMER_REQUEST', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.eql('INVALID_CUSTOMER_REQUEST');",
+                  "    pm.expect(body.correlationId).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create customer - validation failure",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{customerBaseUrl}}/api/v1/customers",
+              "host": [
+                "{{customerBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers"
+              ]
+            },
+            "description": "Every invalid field is listed in `errors`; `detail` repeats the first message.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"A\",\n  \"email\": \"bad\",\n  \"phone\": \"123\",\n  \"dateOfBirth\": \"2999-01-01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "400 Bad Request",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{customerBaseUrl}}/api/v1/customers",
+                  "host": [
+                    "{{customerBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "customers"
+                  ]
+                },
+                "description": "Every invalid field is listed in `errors`; `detail` repeats the first message.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fullName\": \"A\",\n  \"email\": \"bad\",\n  \"phone\": \"123\",\n  \"dateOfBirth\": \"2999-01-01\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/problem+json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Validation failed\",\n  \"status\": 400,\n  \"detail\": \"fullName must be between 2 and 80 characters\",\n  \"instance\": \"/api/v1/customers\",\n  \"code\": \"VALIDATION_FAILED\",\n  \"correlationId\": \"3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10\",\n  \"errors\": [\n    {\n      \"field\": \"fullName\",\n      \"message\": \"fullName must be between 2 and 80 characters\"\n    },\n    {\n      \"field\": \"email\",\n      \"message\": \"email must be a valid email address\"\n    },\n    {\n      \"field\": \"phone\",\n      \"message\": \"phone must be in E.164 format\"\n    },\n    {\n      \"field\": \"dateOfBirth\",\n      \"message\": \"dateOfBirth must be in the past\"\n    }\n  ]\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('Problem Details code is VALIDATION_FAILED', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.eql('VALIDATION_FAILED');",
+                  "    pm.expect(body.correlationId).to.be.a('string');",
+                  "});",
+                  "pm.test('All invalid fields are reported', function () {",
+                  "    pm.expect(pm.response.json().errors).to.have.lengthOf(4);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get customer - no token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{customerBaseUrl}}/api/v1/customers/{{customerId}}",
+              "host": [
+                "{{customerBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers",
+                "{{customerId}}"
+              ]
+            },
+            "description": "Without a bearer token the API answers `401` `UNAUTHENTICATED` with a `WWW-Authenticate: Bearer` header.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "401 Unauthorized",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{customerBaseUrl}}/api/v1/customers/{{customerId}}",
+                  "host": [
+                    "{{customerBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "customers",
+                    "{{customerId}}"
+                  ]
+                },
+                "description": "Without a bearer token the API answers `401` `UNAUTHENTICATED` with a `WWW-Authenticate: Bearer` header.",
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/problem+json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Authentication required\",\n  \"status\": 401,\n  \"detail\": \"A valid bearer token is required to access this resource.\",\n  \"instance\": \"/api/v1/customers/3b241101-e2bb-4255-8caf-4136c566a962\",\n  \"code\": \"UNAUTHENTICATED\",\n  \"correlationId\": \"3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Problem Details code is UNAUTHENTICATED', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.eql('UNAUTHENTICATED');",
+                  "    pm.expect(body.correlationId).to.be.a('string');",
+                  "});",
+                  "pm.test('Challenge header present', function () { pm.response.to.have.header('WWW-Authenticate'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{customerBaseUrl}}/actuator/health",
+              "host": [
+                "{{customerBaseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
+            },
+            "description": "Unauthenticated liveness signal. Details are never exposed.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{customerBaseUrl}}/actuator/health",
+                  "host": [
+                    "{{customerBaseUrl}}"
+                  ],
+                  "path": [
+                    "actuator",
+                    "health"
+                  ]
+                },
+                "description": "Unauthenticated liveness signal. Details are never exposed.",
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"status\": \"UP\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Quote Service",
+      "description": "Owns quotes. Default local address: `{{quoteBaseUrl}}`. v1 takes customer details in the request; v2 references a customer owned by Customer Service.",
+      "item": [
+        {
+          "name": "Create quote (v1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{quoteBaseUrl}}/api/v1/quotes",
+              "host": [
+                "{{quoteBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quotes"
+              ]
+            },
+            "description": "Creates a quote from caller-supplied details.\n\n- Required scope: `quote:create`\n- `customerName`: 2-80 characters of letters, space, `.`, `'` or `-`\n- `age`: 18-75\n- `coverageAmount`: greater than zero\n- `coverageType`: `AUTO`, `HOME`, `LIFE` or `HEALTH` (case-insensitive); base rates 0.07 / 0.05 / 0.09 / 0.08\n- Premium = `coverageAmount` x base rate, +15% when age is over 60, rounded to 2 decimals\n\nResponses: `201`, `400` `VALIDATION_FAILED` / `INVALID_QUOTE_REQUEST` / `BAD_REQUEST`, `401`, `403`, `500` `PERSISTENCE_FAILURE` / `INTERNAL_ERROR`.\n\nErrors use RFC 9457 Problem Details (`application/problem+json`) with a stable `code` and the request's `correlationId`. Send `X-Correlation-Id` (1-64 chars of `A-Za-z0-9._-`) to choose your own; otherwise one is generated and returned in the response header.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Jane Doe\",\n  \"coverageType\": \"AUTO\",\n  \"age\": 35,\n  \"coverageAmount\": 250000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{quoteBaseUrl}}/api/v1/quotes",
+                  "host": [
+                    "{{quoteBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "quotes"
+                  ]
+                },
+                "description": "Creates a quote from caller-supplied details.\n\n- Required scope: `quote:create`\n- `customerName`: 2-80 characters of letters, space, `.`, `'` or `-`\n- `age`: 18-75\n- `coverageAmount`: greater than zero\n- `coverageType`: `AUTO`, `HOME`, `LIFE` or `HEALTH` (case-insensitive); base rates 0.07 / 0.05 / 0.09 / 0.08\n- Premium = `coverageAmount` x base rate, +15% when age is over 60, rounded to 2 decimals\n\nResponses: `201`, `400` `VALIDATION_FAILED` / `INVALID_QUOTE_REQUEST` / `BAD_REQUEST`, `401`, `403`, `500` `PERSISTENCE_FAILURE` / `INTERNAL_ERROR`.\n\nErrors use RFC 9457 Problem Details (`application/problem+json`) with a stable `code` and the request's `correlationId`. Send `X-Correlation-Id` (1-64 chars of `A-Za-z0-9._-`) to choose your own; otherwise one is generated and returned in the response header.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customerName\": \"Jane Doe\",\n  \"coverageType\": \"AUTO\",\n  \"age\": 35,\n  \"coverageAmount\": 250000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"quoteId\": \"b9c76f7a-7281-4b40-9ebc-33cc99f3c3e8\",\n  \"customerName\": \"Jane Doe\",\n  \"coverageType\": \"AUTO\",\n  \"age\": 35,\n  \"coverageAmount\": 250000,\n  \"annualPremium\": 17500.0,\n  \"monthlyPremium\": 1458.33\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Quote id returned', function () { pm.expect(body.quoteId).to.be.a('string'); });",
+                  "pm.environment.set('quoteId', body.quoteId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get quote by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{quoteBaseUrl}}/api/v1/quotes/{{quoteId}}",
+              "host": [
+                "{{quoteBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quotes",
+                "{{quoteId}}"
+              ]
+            },
+            "description": "Returns a quote created through v1 or v2 (v2 quotes are returned without `customerId`).\n\n- Required scope: `quote:read`\n\nResponses: `200`, `401`, `403`, `404` `QUOTE_NOT_FOUND`.\n\nErrors use RFC 9457 Problem Details (`application/problem+json`) with a stable `code` and the request's `correlationId`. Send `X-Correlation-Id` (1-64 chars of `A-Za-z0-9._-`) to choose your own; otherwise one is generated and returned in the response header."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{quoteBaseUrl}}/api/v1/quotes/{{quoteId}}",
+                  "host": [
+                    "{{quoteBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "quotes",
+                    "{{quoteId}}"
+                  ]
+                },
+                "description": "Returns a quote created through v1 or v2 (v2 quotes are returned without `customerId`).\n\n- Required scope: `quote:read`\n\nResponses: `200`, `401`, `403`, `404` `QUOTE_NOT_FOUND`.\n\nErrors use RFC 9457 Problem Details (`application/problem+json`) with a stable `code` and the request's `correlationId`. Send `X-Correlation-Id` (1-64 chars of `A-Za-z0-9._-`) to choose your own; otherwise one is generated and returned in the response header."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"quoteId\": \"b9c76f7a-7281-4b40-9ebc-33cc99f3c3e8\",\n  \"customerName\": \"Jane Doe\",\n  \"coverageType\": \"AUTO\",\n  \"age\": 35,\n  \"coverageAmount\": 250000,\n  \"annualPremium\": 17500.0,\n  \"monthlyPremium\": 1458.33\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Quote id matches', function () {",
+                  "    pm.expect(pm.response.json().quoteId).to.eql(pm.environment.get('quoteId'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List quotes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{quoteBaseUrl}}/api/v1/quotes?page=0&size=20",
+              "host": [
+                "{{quoteBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quotes"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Returns one page of quotes ordered by `quoteId`.\n\n- Required scope: `quote:read`\n- `page`: zero-based, default 0\n- `size`: 1-100, default 20\n\nResponses: `200` with `content`, `page`, `size`, `totalElements`, `totalPages`; `400` `INVALID_QUOTE_REQUEST` (out-of-range values) or `BAD_REQUEST` (non-numeric values); `401`; `403`.\n\nErrors use RFC 9457 Problem Details (`application/problem+json`) with a stable `code` and the request's `correlationId`. Send `X-Correlation-Id` (1-64 chars of `A-Za-z0-9._-`) to choose your own; otherwise one is generated and returned in the response header."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{quoteBaseUrl}}/api/v1/quotes?page=0&size=20",
+                  "host": [
+                    "{{quoteBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "quotes"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "0"
+                    },
+                    {
+                      "key": "size",
+                      "value": "20"
+                    }
+                  ]
+                },
+                "description": "Returns one page of quotes ordered by `quoteId`.\n\n- Required scope: `quote:read`\n- `page`: zero-based, default 0\n- `size`: 1-100, default 20\n\nResponses: `200` with `content`, `page`, `size`, `totalElements`, `totalPages`; `400` `INVALID_QUOTE_REQUEST` (out-of-range values) or `BAD_REQUEST` (non-numeric values); `401`; `403`.\n\nErrors use RFC 9457 Problem Details (`application/problem+json`) with a stable `code` and the request's `correlationId`. Send `X-Correlation-Id` (1-64 chars of `A-Za-z0-9._-`) to choose your own; otherwise one is generated and returned in the response header."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"content\": [\n    {\n      \"quoteId\": \"b9c76f7a-7281-4b40-9ebc-33cc99f3c3e8\",\n      \"customerName\": \"Jane Doe\",\n      \"coverageType\": \"AUTO\",\n      \"age\": 35,\n      \"coverageAmount\": 250000,\n      \"annualPremium\": 17500.0,\n      \"monthlyPremium\": 1458.33\n    }\n  ],\n  \"page\": 0,\n  \"size\": 20,\n  \"totalElements\": 1,\n  \"totalPages\": 1\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Page metadata present', function () {",
+                  "    pm.expect(body.content).to.be.an('array');",
+                  "    pm.expect(body.totalElements).to.be.a('number');",
+                  "    pm.expect(body.size).to.eql(20);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List quotes - size too large",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{quoteBaseUrl}}/api/v1/quotes?page=0&size=1000",
+              "host": [
+                "{{quoteBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quotes"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "1000"
+                }
+              ]
+            },
+            "description": "`size` above 100 is rejected with `400` `INVALID_QUOTE_REQUEST`."
+          },
+          "response": [
+            {
+              "name": "400 Bad Request",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{quoteBaseUrl}}/api/v1/quotes?page=0&size=1000",
+                  "host": [
+                    "{{quoteBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "quotes"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "0"
+                    },
+                    {
+                      "key": "size",
+                      "value": "1000"
+                    }
+                  ]
+                },
+                "description": "`size` above 100 is rejected with `400` `INVALID_QUOTE_REQUEST`."
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/problem+json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Invalid quote request\",\n  \"status\": 400,\n  \"detail\": \"size must be between 1 and 100\",\n  \"instance\": \"/api/v1/quotes\",\n  \"code\": \"INVALID_QUOTE_REQUEST\",\n  \"correlationId\": \"3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('Problem Details code is INVALID_QUOTE_REQUEST', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.eql('INVALID_QUOTE_REQUEST');",
+                  "    pm.expect(body.correlationId).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get quote - not found",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{quoteBaseUrl}}/api/v1/quotes/does-not-exist",
+              "host": [
+                "{{quoteBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quotes",
+                "does-not-exist"
+              ]
+            },
+            "description": "Quote IDs are strings; an unknown ID returns `404` `QUOTE_NOT_FOUND`."
+          },
+          "response": [
+            {
+              "name": "404 Not Found",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{quoteBaseUrl}}/api/v1/quotes/does-not-exist",
+                  "host": [
+                    "{{quoteBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "quotes",
+                    "does-not-exist"
+                  ]
+                },
+                "description": "Quote IDs are strings; an unknown ID returns `404` `QUOTE_NOT_FOUND`."
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/problem+json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Quote not found\",\n  \"status\": 404,\n  \"detail\": \"Quote does-not-exist was not found\",\n  \"instance\": \"/api/v1/quotes/does-not-exist\",\n  \"code\": \"QUOTE_NOT_FOUND\",\n  \"correlationId\": \"3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('Problem Details code is QUOTE_NOT_FOUND', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.eql('QUOTE_NOT_FOUND');",
+                  "    pm.expect(body.correlationId).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create quote (v1) - validation failure",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{quoteBaseUrl}}/api/v1/quotes",
+              "host": [
+                "{{quoteBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quotes"
+              ]
+            },
+            "description": "Every invalid field is listed in `errors`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"A\",\n  \"coverageType\": \"AUTO\",\n  \"age\": 10,\n  \"coverageAmount\": 250000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "400 Bad Request",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{quoteBaseUrl}}/api/v1/quotes",
+                  "host": [
+                    "{{quoteBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "quotes"
+                  ]
+                },
+                "description": "Every invalid field is listed in `errors`.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customerName\": \"A\",\n  \"coverageType\": \"AUTO\",\n  \"age\": 10,\n  \"coverageAmount\": 250000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/problem+json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Validation failed\",\n  \"status\": 400,\n  \"detail\": \"customerName must be between 2 and 80 characters\",\n  \"instance\": \"/api/v1/quotes\",\n  \"code\": \"VALIDATION_FAILED\",\n  \"correlationId\": \"3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10\",\n  \"errors\": [\n    {\n      \"field\": \"customerName\",\n      \"message\": \"customerName must be between 2 and 80 characters\"\n    },\n    {\n      \"field\": \"age\",\n      \"message\": \"age must be at least 18\"\n    }\n  ]\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('Problem Details code is VALIDATION_FAILED', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.eql('VALIDATION_FAILED');",
+                  "    pm.expect(body.correlationId).to.be.a('string');",
+                  "});",
+                  "pm.test('All invalid fields are reported', function () {",
+                  "    pm.expect(pm.response.json().errors).to.have.lengthOf(2);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create quote (v1) - unsupported coverage type",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{quoteBaseUrl}}/api/v1/quotes",
+              "host": [
+                "{{quoteBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quotes"
+              ]
+            },
+            "description": "Business rule failure: `coverageType` must be one of AUTO, HOME, LIFE, HEALTH.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Jane Doe\",\n  \"coverageType\": \"MARINE\",\n  \"age\": 35,\n  \"coverageAmount\": 250000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "400 Bad Request",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{quoteBaseUrl}}/api/v1/quotes",
+                  "host": [
+                    "{{quoteBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "quotes"
+                  ]
+                },
+                "description": "Business rule failure: `coverageType` must be one of AUTO, HOME, LIFE, HEALTH.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customerName\": \"Jane Doe\",\n  \"coverageType\": \"MARINE\",\n  \"age\": 35,\n  \"coverageAmount\": 250000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/problem+json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Invalid quote request\",\n  \"status\": 400,\n  \"detail\": \"coverageType must be one of AUTO, HOME, LIFE, HEALTH\",\n  \"instance\": \"/api/v1/quotes\",\n  \"code\": \"INVALID_QUOTE_REQUEST\",\n  \"correlationId\": \"3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('Problem Details code is INVALID_QUOTE_REQUEST', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.eql('INVALID_QUOTE_REQUEST');",
+                  "    pm.expect(body.correlationId).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create quote for customer (v2)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{quoteBaseUrl}}/api/v2/quotes",
+              "host": [
+                "{{quoteBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "quotes"
+              ]
+            },
+            "description": "Creates a quote for an existing customer. Quote Service looks the customer up in Customer Service (client-credentials token, `customer:read`) and derives name and age from the profile.\n\n- Required scope: `quote:create`\n- `customerId`: UUID of an existing customer (run *Create customer* first)\n- `coverageType`: `AUTO`, `HOME`, `LIFE` or `HEALTH` (case-insensitive); base rates 0.07 / 0.05 / 0.09 / 0.08\n- Premium = `coverageAmount` x base rate, +15% when age is over 60, rounded to 2 decimals\n- The customer's age must be 18-75\n\nResponses: `201`, `400` `VALIDATION_FAILED` / `INVALID_QUOTE_REQUEST`, `401`, `403`, `422` `CUSTOMER_REFERENCE_INVALID` (unknown customer), `503` `CUSTOMER_SERVICE_UNAVAILABLE`, `504` `CUSTOMER_SERVICE_TIMEOUT`, `500` `PERSISTENCE_FAILURE` / `INTERNAL_ERROR`.\n\nErrors use RFC 9457 Problem Details (`application/problem+json`) with a stable `code` and the request's `correlationId`. Send `X-Correlation-Id` (1-64 chars of `A-Za-z0-9._-`) to choose your own; otherwise one is generated and returned in the response header.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"coverageType\": \"HOME\",\n  \"coverageAmount\": 400000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{quoteBaseUrl}}/api/v2/quotes",
+                  "host": [
+                    "{{quoteBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v2",
+                    "quotes"
+                  ]
+                },
+                "description": "Creates a quote for an existing customer. Quote Service looks the customer up in Customer Service (client-credentials token, `customer:read`) and derives name and age from the profile.\n\n- Required scope: `quote:create`\n- `customerId`: UUID of an existing customer (run *Create customer* first)\n- `coverageType`: `AUTO`, `HOME`, `LIFE` or `HEALTH` (case-insensitive); base rates 0.07 / 0.05 / 0.09 / 0.08\n- Premium = `coverageAmount` x base rate, +15% when age is over 60, rounded to 2 decimals\n- The customer's age must be 18-75\n\nResponses: `201`, `400` `VALIDATION_FAILED` / `INVALID_QUOTE_REQUEST`, `401`, `403`, `422` `CUSTOMER_REFERENCE_INVALID` (unknown customer), `503` `CUSTOMER_SERVICE_UNAVAILABLE`, `504` `CUSTOMER_SERVICE_TIMEOUT`, `500` `PERSISTENCE_FAILURE` / `INTERNAL_ERROR`.\n\nErrors use RFC 9457 Problem Details (`application/problem+json`) with a stable `code` and the request's `correlationId`. Send `X-Correlation-Id` (1-64 chars of `A-Za-z0-9._-`) to choose your own; otherwise one is generated and returned in the response header.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"coverageType\": \"HOME\",\n  \"coverageAmount\": 400000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"quoteId\": \"0d3e5a2c-6a0f-44b0-a9d5-1b1f8c3c9e11\",\n  \"customerId\": \"3b241101-e2bb-4255-8caf-4136c566a962\",\n  \"customerName\": \"Jane Doe\",\n  \"coverageType\": \"HOME\",\n  \"age\": 36,\n  \"coverageAmount\": 400000,\n  \"annualPremium\": 20000.0,\n  \"monthlyPremium\": 1666.67\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Quote is linked to the customer', function () {",
+                  "    pm.expect(body.customerId).to.eql(pm.environment.get('customerId'));",
+                  "});",
+                  "pm.environment.set('quoteId', body.quoteId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create quote for customer (v2) - unknown customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{quoteBaseUrl}}/api/v2/quotes",
+              "host": [
+                "{{quoteBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "quotes"
+              ]
+            },
+            "description": "A well-formed `customerId` that Customer Service does not know returns `422` `CUSTOMER_REFERENCE_INVALID`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"00000000-0000-0000-0000-000000000000\",\n  \"coverageType\": \"HOME\",\n  \"coverageAmount\": 400000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "422 Unprocessable Entity",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{quoteBaseUrl}}/api/v2/quotes",
+                  "host": [
+                    "{{quoteBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v2",
+                    "quotes"
+                  ]
+                },
+                "description": "A well-formed `customerId` that Customer Service does not know returns `422` `CUSTOMER_REFERENCE_INVALID`.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customerId\": \"00000000-0000-0000-0000-000000000000\",\n  \"coverageType\": \"HOME\",\n  \"coverageAmount\": 400000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/problem+json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Invalid customer reference\",\n  \"status\": 422,\n  \"detail\": \"Customer 00000000-0000-0000-0000-000000000000 was not found\",\n  \"instance\": \"/api/v2/quotes\",\n  \"code\": \"CUSTOMER_REFERENCE_INVALID\",\n  \"correlationId\": \"3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Problem Details code is CUSTOMER_REFERENCE_INVALID', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.eql('CUSTOMER_REFERENCE_INVALID');",
+                  "    pm.expect(body.correlationId).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create quote for customer (v2) - invalid customerId",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{quoteBaseUrl}}/api/v2/quotes",
+              "host": [
+                "{{quoteBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "quotes"
+              ]
+            },
+            "description": "A `customerId` that is not a UUID fails request validation.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"not-a-uuid\",\n  \"coverageType\": \"HOME\",\n  \"coverageAmount\": 400000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "400 Bad Request",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{quoteBaseUrl}}/api/v2/quotes",
+                  "host": [
+                    "{{quoteBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v2",
+                    "quotes"
+                  ]
+                },
+                "description": "A `customerId` that is not a UUID fails request validation.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customerId\": \"not-a-uuid\",\n  \"coverageType\": \"HOME\",\n  \"coverageAmount\": 400000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/problem+json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Validation failed\",\n  \"status\": 400,\n  \"detail\": \"customerId must be a valid UUID\",\n  \"instance\": \"/api/v2/quotes\",\n  \"code\": \"VALIDATION_FAILED\",\n  \"correlationId\": \"3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10\",\n  \"errors\": [\n    {\n      \"field\": \"customerId\",\n      \"message\": \"customerId must be a valid UUID\"\n    }\n  ]\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('Problem Details code is VALIDATION_FAILED', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.eql('VALIDATION_FAILED');",
+                  "    pm.expect(body.correlationId).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create quote (v1) - no token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{quoteBaseUrl}}/api/v1/quotes",
+              "host": [
+                "{{quoteBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "quotes"
+              ]
+            },
+            "description": "Without a bearer token the API answers `401` `UNAUTHENTICATED`. A token without `quote:create` answers `403` `ACCESS_DENIED`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Jane Doe\",\n  \"coverageType\": \"AUTO\",\n  \"age\": 35,\n  \"coverageAmount\": 250000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "401 Unauthorized",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{quoteBaseUrl}}/api/v1/quotes",
+                  "host": [
+                    "{{quoteBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "quotes"
+                  ]
+                },
+                "description": "Without a bearer token the API answers `401` `UNAUTHENTICATED`. A token without `quote:create` answers `403` `ACCESS_DENIED`.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customerName\": \"Jane Doe\",\n  \"coverageType\": \"AUTO\",\n  \"age\": 35,\n  \"coverageAmount\": 250000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/problem+json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Authentication required\",\n  \"status\": 401,\n  \"detail\": \"A valid bearer token is required to access this resource.\",\n  \"instance\": \"/api/v1/quotes\",\n  \"code\": \"UNAUTHENTICATED\",\n  \"correlationId\": \"3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Problem Details code is UNAUTHENTICATED', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.eql('UNAUTHENTICATED');",
+                  "    pm.expect(body.correlationId).to.be.a('string');",
+                  "});",
+                  "pm.test('Challenge header present', function () { pm.response.to.have.header('WWW-Authenticate'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{quoteBaseUrl}}/actuator/health",
+              "host": [
+                "{{quoteBaseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
+            },
+            "description": "Unauthenticated liveness signal. Details are never exposed.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{quoteBaseUrl}}/actuator/health",
+                  "host": [
+                    "{{quoteBaseUrl}}"
+                  ],
+                  "path": [
+                    "actuator",
+                    "health"
+                  ]
+                },
+                "description": "Unauthenticated liveness signal. Details are never exposed.",
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Correlation-Id",
+                  "value": "3f1c0f6e-6a3b-4d0e-9a57-2f0d1b6c7a10"
+                }
+              ],
+              "body": "{\n  \"status\": \"UP\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+name: insure-ai
+
+services:
+  insure-db:
+    image: postgres:16
+    container_name: insure-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: insure_db
+      POSTGRES_USER: insure_admin
+      POSTGRES_PASSWORD: ${INSURE_DB_ADMIN_PASSWORD:?Set INSURE_DB_ADMIN_PASSWORD in .env}
+      INSURE_DB_USERNAME: ${INSURE_DB_USERNAME:?Set INSURE_DB_USERNAME in .env}
+      INSURE_DB_PASSWORD: ${INSURE_DB_PASSWORD:?Set INSURE_DB_PASSWORD in .env}
+      CUSTOMER_DB_USERNAME: ${CUSTOMER_DB_USERNAME:?Set CUSTOMER_DB_USERNAME in .env}
+      CUSTOMER_DB_PASSWORD: ${CUSTOMER_DB_PASSWORD:?Set CUSTOMER_DB_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${INSURE_DB_HOST_PORT:-5433}:5432"
+    volumes:
+      - insure-postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/01-create-quote-user.sh:/docker-entrypoint-initdb.d/01-create-quote-user.sh:ro
+      - ./docker/postgres/02-create-customer-database.sh:/docker-entrypoint-initdb.d/02-create-customer-database.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3
+    container_name: insure-keycloak
+    command: ["start-dev", "--http-port=8080"]
+    restart: unless-stopped
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:?Set KEYCLOAK_ADMIN_USERNAME in .env}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:?Set KEYCLOAK_PUBLIC_URL in .env}
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT:-8280}:8080"
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+
+volumes:
+  insure-postgres-data:
+    name: insure-postgres-data
+  keycloak-data:
+    name: insure-keycloak-data

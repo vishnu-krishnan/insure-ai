@@ -1,0 +1,57 @@
+# Java and Maven
+*.class
+*.jar
+*.war
+*.ear
+target/
+build/
+out/
+
+# IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+.factorypath
+.springBeans
+.sts4-cache/
+.vscode/
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+HELP.md
+.mvn/wrapper/maven-wrapper.jar
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+*.swo
+*.pid
+*.orig
+*.bak
+hs_err_pid*
+replay_pid*
+
+# Database dumps and local notes
+*.dump
+files/
+
+# Local tooling
+.claude/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.local
+*.local.properties
+
+# Operating system files
+.DS_Store
+Thumbs.db
