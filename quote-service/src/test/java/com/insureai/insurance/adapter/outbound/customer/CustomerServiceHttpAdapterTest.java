@@ -1,6 +1,7 @@
 package com.insureai.insurance.adapter.outbound.customer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -46,14 +47,26 @@ class CustomerServiceHttpAdapterTest {
         server.expect(requestTo("http://customer.test/api/v1/customers/" + CUSTOMER_ID))
             .andExpect(method(HttpMethod.GET))
             .andRespond(withSuccess("""
+                {"customerId":"3b241101-e2bb-4255-8caf-4136c566a962","customerNumber":"CUS-000001",
+                 "fullName":"Alice Smith","email":"alice@example.test","phone":"+14155552671",
+                 "dateOfBirth":"1990-01-01","unknownField":"ignored"}
+                """, MediaType.APPLICATION_JSON));
+
+        assertEquals(
+            new CustomerProfileSnapshot(CUSTOMER_ID, "Alice Smith", LocalDate.of(1990, 1, 1), "CUS-000001"),
+            adapter.findCustomer(CUSTOMER_ID)
+        );
+    }
+
+    @Test
+    void treatsMissingCustomerNumberAsNull() {
+        server.expect(requestTo("http://customer.test/api/v1/customers/" + CUSTOMER_ID))
+            .andRespond(withSuccess("""
                 {"customerId":"3b241101-e2bb-4255-8caf-4136c566a962","fullName":"Alice Smith",
                  "email":"alice@example.test","phone":"+14155552671","dateOfBirth":"1990-01-01"}
                 """, MediaType.APPLICATION_JSON));
 
-        assertEquals(
-            new CustomerProfileSnapshot(CUSTOMER_ID, "Alice Smith", LocalDate.of(1990, 1, 1)),
-            adapter.findCustomer(CUSTOMER_ID)
-        );
+        assertNull(adapter.findCustomer(CUSTOMER_ID).customerNumber());
     }
 
     @Test

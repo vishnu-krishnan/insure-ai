@@ -30,12 +30,16 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(DomainValidationException.class)
     public ResponseEntity<ProblemDetail> handleDomainValidation(DomainValidationException exception) {
-        return ApiProblem.response(
+        ProblemDetail problem = ApiProblem.of(
             HttpStatus.BAD_REQUEST,
             "Invalid quote request",
             exception.getMessage(),
             "INVALID_QUOTE_REQUEST"
         );
+        if (exception.field() != null) {
+            problem.setProperty("errors", List.of(new FieldViolation(exception.field(), exception.getMessage())));
+        }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
     }
 
     @ExceptionHandler(QuoteNotFoundException.class)

@@ -47,6 +47,26 @@ The permissions enforced by the applications are:
 
 Internal network location does not grant trust: Customer Service validates the JWT issuer, signature, time claims, audience, and required scope on its API.
 
+## Web UI client
+
+The browser app in `frontend/` signs in with a public client and the authorization code flow with PKCE. There is no client secret, and direct password grants stay disabled.
+
+| Item | Value |
+|---|---|
+| Client ID | `insure-ui` |
+| Redirect URI | `http://localhost:3174/auth/callback` |
+| Post-logout redirect | `http://localhost:3174/` |
+| Web origin | `http://localhost:3174` |
+| Realm roles | `agent`, `customer`; the UI reads them from the `realm_access.roles` claim |
+| Client scopes | `quote:create`, `quote:read`, `customer:create`, `customer:read`, assigned as default scopes |
+| Audience mappers | one each for `QUOTE_JWT_AUDIENCE` and `CUSTOMER_JWT_AUDIENCE`, so one access token is accepted by both services |
+
+`docker/keycloak/configure-realm.sh` creates anything missing and leaves existing objects alone; run it with `--dry-run` first to see what would change. It reads the admin credentials from the environment or the ignored `.env`, passes them to Keycloak on stdin, and creates a local test user `agent1` with the `agent` role. The generated password is printed once at creation and is not stored anywhere.
+
+## Login theme
+
+The login page uses the `insure-ai` theme in `docker/keycloak/themes/insure-ai/login`, mounted read-only into the Keycloak container by `docker-compose.yml`. `docker/keycloak/configure-realm.sh` sets it as the realm's login theme and sets the display name to "Insure AI". After changing the compose file, recreate the container with `docker compose up -d keycloak`; theme files are read without a rebuild because the container runs `start-dev`.
+
 ## Compose and independent local startup
 
 From the repository root, create `.env` from `.env.example` if it does not exist. If legacy settings exist in `quote-service/.env`, merge them instead of overwriting either file. Replace placeholders with local-only values, then start only the project-owned infrastructure:

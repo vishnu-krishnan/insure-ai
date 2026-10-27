@@ -1,5 +1,10 @@
 package com.insureai.insurance.adapter.inbound.web;
 
+import static com.insureai.insurance.QuoteFixtures.quote;
+import static com.insureai.insurance.QuoteFixtures.withCreatedAt;
+import static com.insureai.insurance.QuoteFixtures.withCreatedBy;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -10,8 +15,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -53,15 +61,7 @@ class CustomerQuoteControllerTest {
     @Test
     void createsCustomerReferencedQuoteForAuthorizedRequest() throws Exception {
         when(createCustomerQuoteUseCase.createQuoteForCustomer(any()))
-            .thenReturn(new PolicyQuote(
-                "quote-1",
-                "Alice Smith",
-                CoverageType.AUTO,
-                35,
-                new BigDecimal("250000"),
-                new BigDecimal("17500.00"),
-                CUSTOMER_ID
-            ));
+            .thenReturn(quote("quote-1", "Alice Smith", CoverageType.AUTO, 35, "250000", "17500.00", CUSTOMER_ID, "QT-000005", "CUS-000002"));
 
         mockMvc.perform(post("/api/v2/quotes")
                 .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:create")))
@@ -71,6 +71,8 @@ class CustomerQuoteControllerTest {
                     """))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.customerId").value(CUSTOMER_ID))
+            .andExpect(jsonPath("$.quoteNumber").value("QT-000005"))
+            .andExpect(jsonPath("$.customerNumber").value("CUS-000002"))
             .andExpect(jsonPath("$.customerName").value("Alice Smith"))
             .andExpect(jsonPath("$.annualPremium").value(17500.00));
         verify(createCustomerQuoteUseCase).createQuoteForCustomer(any(CreateCustomerQuoteCommand.class));
@@ -102,5 +104,118 @@ class CustomerQuoteControllerTest {
                     """))
             .andExpect(status().isUnprocessableEntity())
             .andExpect(jsonPath("$.title").value("Invalid customer reference"));
+    }
+
+    @Test
+    void requestWithoutNewFieldsPassesNullDetailsToUseCase() throws Exception {
+        when(createCustomerQuoteUseCase.createQuoteForCustomer(any()))
+            .thenReturn(quote("quote-1", "Alice Smith", CoverageType.AUTO, 35, "250000", "17500.00"));
+
+        mockMvc.perform(post("/api/v2/quotes")
+                .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:create")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"customerId\":\"" + CUSTOMER_ID + "\",\"coverageType\":\"AUTO\",\"coverageAmount\":250000}"))
+            .andExpect(status().isCreated());
+
+        CreateCustomerQuoteCommand command = captureCommand();
+        assertNull(command.policyTermYears());
+        assertNull(command.paymentFrequency());
+        assertNull(command.deductible());
+        assertNull(command.startDate());
+    }
+
+    @Test
+    void acceptsPolicyDetailsAndRecordsCreator() throws Exception {
+        when(createCustomerQuoteUseCase.createQuoteForCustomer(any()))
+            .thenReturn(quote("quote-1", "Alice Smith", CoverageType.AUTO, 35, "250000", "17500.00"));
+
+        mockMvc.perform(post("/api/v2/quotes")
+                .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:create"))
+                    .jwt(token -> token.claim("preferred_username", "agent.alice")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"customerId\":\"" + CUSTOMER_ID + "\",\"coverageType\":\"AUTO\",\"coverageAmount\":250000,"
+                    + "\"policyTermYears\":20,\"paymentFrequency\":\"QUARTERLY\",\"deductible\":1000,"
+                    + "\"startDate\":\"2026-11-01\"}"))
+            .andExpect(status().isCreated());
+
+        CreateCustomerQuoteCommand command = captureCommand();
+        assertEquals(20, command.policyTermYears());
+        assertEquals("QUARTERLY", command.paymentFrequency());
+        assertEquals(new BigDecimal("1000"), command.deductible());
+        assertEquals(LocalDate.of(2026, 11, 1), command.startDate());
+        assertEquals("agent.alice", command.createdBy());
+    }
+
+    @Test
+    void usesSubjectWhenPreferredUsernameIsMissing() throws Exception {
+        when(createCustomerQuoteUseCase.createQuoteForCustomer(any()))
+            .thenReturn(quote("quote-1", "Alice Smith", CoverageType.AUTO, 35, "250000", "17500.00"));
+
+        mockMvc.perform(post("/api/v2/quotes")
+                .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:create"))
+                    .jwt(token -> token.subject("sub-9")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"customerId\":\"" + CUSTOMER_ID + "\",\"coverageType\":\"AUTO\",\"coverageAmount\":250000}"))
+            .andExpect(status().isCreated());
+
+        assertEquals("sub-9", captureCommand().createdBy());
+    }
+
+    @Test
+    void rejectsInvalidPolicyDetailsNamingTheField() throws Exception {
+        assertInvalidField("\"policyTermYears\":41", "policyTermYears");
+        assertInvalidField("\"policyTermYears\":0", "policyTermYears");
+        assertInvalidField("\"paymentFrequency\":\"DAILY\"", "paymentFrequency");
+        assertInvalidField("\"deductible\":-5", "deductible");
+        assertInvalidField("\"deductible\":1.005", "deductible");
+        verifyNoInteractions(createCustomerQuoteUseCase);
+    }
+
+    @Test
+    void responseContainsPolicyDetailsAndPremiumBreakdown() throws Exception {
+        Instant createdAt = Instant.now();
+        when(createCustomerQuoteUseCase.createQuoteForCustomer(any())).thenReturn(withCreatedBy(withCreatedAt(
+            quote("quote-1", "Alice Smith", CoverageType.HOME, 35, "250000", "12500.00", CUSTOMER_ID,
+                "QT-000005", "CUS-000002"), createdAt), "agent.alice"));
+
+        mockMvc.perform(post("/api/v2/quotes")
+                .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:create")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"customerId\":\"" + CUSTOMER_ID + "\",\"coverageType\":\"HOME\",\"coverageAmount\":250000}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.quoteNumber").value("QT-000005"))
+            .andExpect(jsonPath("$.customerNumber").value("CUS-000002"))
+            .andExpect(jsonPath("$.annualPremium").value(12500.00))
+            .andExpect(jsonPath("$.monthlyPremium").value(1041.67))
+            .andExpect(jsonPath("$.policyTermYears").value(1))
+            .andExpect(jsonPath("$.paymentFrequency").value("YEARLY"))
+            .andExpect(jsonPath("$.deductible").value(0.0))
+            .andExpect(jsonPath("$.startDate").value("2026-10-26"))
+            .andExpect(jsonPath("$.validUntil").value(
+                LocalDate.ofInstant(createdAt, java.time.ZoneOffset.UTC).plusDays(30).toString()))
+            .andExpect(jsonPath("$.status").value("ISSUED"))
+            .andExpect(jsonPath("$.taxRate").value(0.18))
+            .andExpect(jsonPath("$.taxAmount").value(2250.00))
+            .andExpect(jsonPath("$.totalAnnualPayable").value(14750.00))
+            .andExpect(jsonPath("$.installmentAmount").value(14750.00))
+            .andExpect(jsonPath("$.createdAt").value(createdAt.toString()))
+            .andExpect(jsonPath("$.createdBy").value("agent.alice"));
+    }
+
+    private CreateCustomerQuoteCommand captureCommand() {
+        ArgumentCaptor<CreateCustomerQuoteCommand> captor = ArgumentCaptor.forClass(CreateCustomerQuoteCommand.class);
+        verify(createCustomerQuoteUseCase).createQuoteForCustomer(captor.capture());
+        return captor.getValue();
+    }
+
+    private void assertInvalidField(String extraJson, String field) throws Exception {
+        mockMvc.perform(post("/api/v2/quotes")
+                .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:create")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"customerId\":\"" + CUSTOMER_ID + "\",\"coverageType\":\"AUTO\",\"coverageAmount\":250000,"
+                    + extraJson + "}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+            .andExpect(jsonPath("$.errors[0].field").value(field));
     }
 }

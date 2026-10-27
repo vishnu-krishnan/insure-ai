@@ -54,12 +54,12 @@ The versioned API currently supports:
 
 - `POST /api/v1/quotes` — create a quote (existing behavior).
 - `GET /api/v1/quotes/{quoteId}` — retrieve a quote by ID; returns `404` Problem Details when it does not exist.
-- `GET /api/v1/quotes?page=0&size=20` — list quotes ordered by `quoteId`. `page` is zero-based; `size` must be between 1 and 100. The response carries `content`, `page`, `size`, `totalElements` and `totalPages`.
+- `GET /api/v1/quotes?page=0&size=20&q=` — list quotes, newest first (by quote number). `page` is zero-based; `size` must be between 1 and 100. The optional `q` (at most 80 characters) is a case-insensitive contains search over quote number, quote ID, customer name, customer number, customer ID and coverage type. The response carries `content`, `page`, `size`, `totalElements` and `totalPages`. Every quote has a business `quoteNumber` such as `QT-000001`; quotes created through v2 also carry the customer's `customerNumber`.
 - `POST /api/v2/quotes` — create a quote using an existing `customerId` from Customer Service.
 
 The v1 endpoints use the `QuoteRequestDto`/`QuoteResponseDto` HTTP contract and the v2 endpoint uses `CreateCustomerQuoteRequestDto`/`CustomerQuoteResponseDto`. Domain types remain inside the service boundary.
 
-Customer Service is an independent Maven application in `customer-service`. It exclusively owns customer profiles and its Flyway migrations. It exposes `POST /api/v1/customers` and `GET /api/v1/customers/{customerId}`. Quote Service v2 obtains customer details through that HTTP API using an OAuth2 client-credentials token; it does not access Customer Service tables. Existing Quote v1 requests and rows remain supported; the nullable `customer_id` introduced by migration V2 leaves existing records unchanged.
+Customer Service is an independent Maven application in `customer-service`. It exclusively owns customer profiles and its Flyway migrations. It exposes `POST /api/v1/customers`, `GET /api/v1/customers/{customerId}` and `GET /api/v1/customers?q=&page=&size=` (case-insensitive contains search over name, customer number, email, phone and customer ID, newest first). Every customer has a business `customerNumber` such as `CUS-000001`; the UUID stays the primary key used in paths. Quote Service v2 obtains customer details through that HTTP API using an OAuth2 client-credentials token; it does not access Customer Service tables. Existing Quote v1 requests and rows remain supported; the nullable `customer_id` introduced by migration V2 leaves existing records unchanged.
 
 ## Local services and Keycloak
 
@@ -88,6 +88,23 @@ Both services publish OpenAPI documentation through springdoc: Swagger UI at `/s
 All error responses are RFC 9457 Problem Details (`application/problem+json`) with a stable `code` (for example `QUOTE_NOT_FOUND`, `VALIDATION_FAILED`, `UNAUTHENTICATED`, `INTERNAL_ERROR`), the request's `correlationId`, and, for validation failures, an `errors` list with one entry per invalid field. Unexpected failures return a generic message and are logged once, with the stack trace, on the server.
 
 Every request carries an `X-Correlation-Id`: a caller-supplied value of 1-64 characters from `A-Za-z0-9._-` is reused, otherwise one is generated. It is returned in the response header, included in error bodies and written into every log line. Each request is logged once as `METHOD /path -> status (duration)`; query strings, headers and bodies are never logged.
+
+## Frontend
+
+The browser app lives in `frontend/` (React, TypeScript, Vite; Node 24 LTS, see `frontend/.nvmrc`). Agents sign in through Keycloak and create customers and quotes; the customer area is a placeholder until customer-level authorization exists in the services.
+
+```sh
+cd frontend
+cp -n .env.example .env.local
+npm ci
+npm run dev        # http://localhost:3174
+```
+
+The dev server proxies `/api/v1/customers` to Customer Service and `/api/v1/quotes` and `/api/v2/quotes` to Quote Service, so no CORS configuration is needed locally. Configure the realm first (see `docs/keycloak.md`, section *Web UI client*).
+
+- Real sign-in: keep `VITE_AUTH_MODE=oidc`.
+- Without Keycloak: set `VITE_AUTH_MODE=mock` for a fake signed-in agent. Mock mode works only in `npm run dev`; production builds refuse it and do not contain the mock code.
+- `npm test` runs the unit and component tests, `npm run lint` and `npm run build` check the rest. `E2E_AGENT_PASSWORD=<password> npm run e2e` runs the browser flow against real services and Keycloak; install the browser once with `npx playwright install chromium`.
 
 ## Tests
 

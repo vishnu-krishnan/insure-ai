@@ -32,3 +32,34 @@ jobs:
 
       - name: Build and test
         run: ./mvnw -B clean verify
+
+  frontend:
+    name: Verify frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_OIDC_AUTHORITY: http://localhost:8280/realms/insure-ai
+          VITE_OIDC_CLIENT_ID: insure-ui

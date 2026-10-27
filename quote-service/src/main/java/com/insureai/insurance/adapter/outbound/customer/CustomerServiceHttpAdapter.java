@@ -63,7 +63,12 @@ public class CustomerServiceHttpAdapter implements CustomerProfileLookupPort {
                         false
                     );
                 }
-                return new CustomerProfileSnapshot(customer.customerId(), customer.fullName(), customer.dateOfBirth());
+                return new CustomerProfileSnapshot(
+                    customer.customerId(),
+                    customer.fullName(),
+                    customer.dateOfBirth(),
+                    customer.customerNumber()
+                );
             } catch (CustomerReferenceNotFoundException exception) {
                 throw exception;
             } catch (CustomerServiceTimeoutException exception) {

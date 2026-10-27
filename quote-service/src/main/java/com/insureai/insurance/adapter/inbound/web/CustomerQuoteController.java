@@ -1,10 +1,15 @@
 package com.insureai.insurance.adapter.inbound.web;
 
+import java.time.Clock;
+import java.time.LocalDate;
+
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,9 +37,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 })
 public class CustomerQuoteController {
     private final CreateCustomerQuoteUseCase createCustomerQuoteUseCase;
+    private final Clock clock;
 
-    public CustomerQuoteController(CreateCustomerQuoteUseCase createCustomerQuoteUseCase) {
+    public CustomerQuoteController(CreateCustomerQuoteUseCase createCustomerQuoteUseCase, Clock clock) {
         this.createCustomerQuoteUseCase = createCustomerQuoteUseCase;
+        this.clock = clock;
     }
 
     @PostMapping
@@ -53,11 +60,13 @@ public class CustomerQuoteController {
     @ApiResponse(responseCode = "504", description = "Customer Service timed out",
         content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
     public ResponseEntity<CustomerQuoteResponseDto> createQuote(
-        @Valid @RequestBody CreateCustomerQuoteRequestDto request
+        @Valid @RequestBody CreateCustomerQuoteRequestDto request,
+        @AuthenticationPrincipal Jwt jwt
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(CustomerQuoteResponseDto.fromDomain(
-                createCustomerQuoteUseCase.createQuoteForCustomer(request.toCommand())
+                createCustomerQuoteUseCase.createQuoteForCustomer(request.toCommand(QuoteCreator.from(jwt))),
+                LocalDate.now(clock)
             ));
     }
 }

@@ -6,11 +6,11 @@ import java.util.Optional;
 import com.insureai.insurance.domain.model.PolicyQuote;
 
 public interface QuoteRepositoryPort {
-    void save(PolicyQuote quote);
+    PolicyQuote save(PolicyQuote quote);
 
     Optional<PolicyQuote> findById(String quoteId);
 
-    List<PolicyQuote> findPage(long offset, int limit);
+    List<PolicyQuote> findPage(String query, long offset, int limit);
 
-    long count();
+    long count(String query);
 }

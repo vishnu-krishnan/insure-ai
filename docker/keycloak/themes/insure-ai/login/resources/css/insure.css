@@ -1,0 +1,89 @@
+/* Insure AI login theme: trust blue on white, or navy in dark mode. Matches the web app. */
+:root {
+  --insure-accent: #3f6ff0;
+  --insure-accent-dark: #2557d6;
+  --insure-bg: #f5f7fb;
+  --insure-card: #ffffff;
+  --insure-text: #0b1222;
+  --insure-muted: #5b6678;
+  --insure-border: #dde3ee;
+}
+.pf-v5-theme-dark {
+  --insure-accent: #6690fb;
+  --insure-accent-dark: #3f6ff0;
+  --insure-bg: #0b1222;
+  --insure-card: #131b2f;
+  --insure-text: #e8edf7;
+  --insure-muted: #9ba9c6;
+  --insure-border: #33405e;
+}
+
+:root,
+.pf-v5-theme-dark {
+  --pf-v5-global--primary-color--100: var(--insure-accent-dark);
+  --pf-v5-global--primary-color--200: var(--insure-accent);
+  --pf-v5-global--active-color--100: var(--insure-accent-dark);
+}
+
+.pf-v5-c-login,
+.login-pf-page {
+  background: var(--insure-bg);
+  background-image: none;
+}
+
+/* Brand header: logo above the realm name. */
+#kc-header-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--insure-text) !important;
+  font-size: 1.5rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+}
+#kc-header-wrapper::before {
+  content: '';
+  width: 52px;
+  height: 52px;
+  background: url('../img/logo.svg') center / contain no-repeat;
+}
+
+.pf-v5-c-login__main {
+  background: var(--insure-card);
+  color: var(--insure-text);
+  border: 1px solid var(--insure-border);
+  border-top: 3px solid var(--insure-accent);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+.pf-v5-c-login__main-header,
+.pf-v5-c-title,
+.pf-v5-c-form__label-text {
+  color: var(--insure-text);
+}
+.pf-v5-c-form-control {
+  --pf-v5-c-form-control--BorderRadius: 8px;
+}
+.pf-v5-c-button.pf-m-primary {
+  --pf-v5-c-button--m-primary--BackgroundColor: var(--insure-accent-dark);
+  --pf-v5-c-button--m-primary--hover--BackgroundColor: var(--insure-accent);
+  --pf-v5-c-button--m-primary--focus--BackgroundColor: var(--insure-accent);
+  --pf-v5-c-button--m-primary--active--BackgroundColor: var(--insure-accent);
+  --pf-v5-c-button--m-primary--Color: #ffffff;
+  --pf-v5-c-button--BorderRadius: 8px;
+  font-weight: 600;
+}
+.pf-v5-theme-dark .pf-v5-c-button.pf-m-primary {
+  --pf-v5-c-button--m-primary--BackgroundColor: var(--insure-accent);
+  --pf-v5-c-button--m-primary--hover--BackgroundColor: #8fb0ff;
+  --pf-v5-c-button--m-primary--Color: #0b1222;
+}
+a,
+.pf-v5-c-login__main-footer-band a {
+  color: var(--insure-accent-dark);
+}
+.pf-v5-theme-dark a {
+  color: var(--insure-accent);
+}
