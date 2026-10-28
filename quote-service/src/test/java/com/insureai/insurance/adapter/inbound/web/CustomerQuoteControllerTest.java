@@ -3,6 +3,7 @@ package com.insureai.insurance.adapter.inbound.web;
 import static com.insureai.insurance.QuoteFixtures.quote;
 import static com.insureai.insurance.QuoteFixtures.withCreatedAt;
 import static com.insureai.insurance.QuoteFixtures.withCreatedBy;
+import static com.insureai.insurance.QuoteFixtures.withTypeDetails;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -17,6 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -76,6 +78,31 @@ class CustomerQuoteControllerTest {
             .andExpect(jsonPath("$.customerName").value("Alice Smith"))
             .andExpect(jsonPath("$.annualPremium").value(17500.00));
         verify(createCustomerQuoteUseCase).createQuoteForCustomer(any(CreateCustomerQuoteCommand.class));
+    }
+
+    @Test
+    void customerQuoteAcceptsDetailsAndReturnsThem() throws Exception {
+        Map<String, Object> details = Map.of("smoker", false, "occupationClass", "CLASS_1",
+            "nomineeName", "Jane Doe", "nomineeRelationship", "Spouse");
+        when(createCustomerQuoteUseCase.createQuoteForCustomer(any())).thenReturn(withTypeDetails(
+            quote("quote-1", "Alice Smith", CoverageType.LIFE, 35, "250000", "22500.00", CUSTOMER_ID, "QT-000005",
+                "CUS-000002"), details));
+
+        mockMvc.perform(post("/api/v2/quotes")
+                .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:create")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"customerId":"3b241101-e2bb-4255-8caf-4136c566a962","coverageType":"LIFE","coverageAmount":250000,
+                     "details":{"smoker":false,"occupationClass":"CLASS_1","nomineeName":"Jane Doe",
+                     "nomineeRelationship":"Spouse"}}
+                    """))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.details.smoker").value(false))
+            .andExpect(jsonPath("$.details.occupationClass").value("CLASS_1"));
+
+        ArgumentCaptor<CreateCustomerQuoteCommand> captor = ArgumentCaptor.forClass(CreateCustomerQuoteCommand.class);
+        verify(createCustomerQuoteUseCase).createQuoteForCustomer(captor.capture());
+        assertEquals(details, captor.getValue().details());
     }
 
     @Test

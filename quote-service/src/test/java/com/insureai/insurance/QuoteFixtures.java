@@ -3,6 +3,7 @@ package com.insureai.insurance;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Map;
 
 import com.insureai.insurance.domain.model.CoverageType;
 import com.insureai.insurance.domain.model.PaymentFrequency;
@@ -65,6 +66,14 @@ public final class QuoteFixtures {
             quote.annualPremium(), quote.customerId(), quote.quoteNumber(), quote.customerNumber(),
             quote.policyTermYears(), quote.paymentFrequency(), quote.deductible(), quote.startDate(),
             quote.taxRate(), quote.taxAmount(), createdAt, quote.createdBy());
+    }
+
+    public static PolicyQuote withTypeDetails(PolicyQuote quote, Map<String, Object> typeDetails) {
+        return new PolicyQuote(
+            quote.quoteId(), quote.customerName(), quote.coverageType(), quote.age(), quote.coverageAmount(),
+            quote.annualPremium(), quote.customerId(), quote.quoteNumber(), quote.customerNumber(),
+            quote.policyTermYears(), quote.paymentFrequency(), quote.deductible(), quote.startDate(),
+            quote.taxRate(), quote.taxAmount(), quote.createdAt(), quote.createdBy(), typeDetails);
     }
 
     public static PolicyQuote withCreatedBy(PolicyQuote quote, String createdBy) {

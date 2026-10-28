@@ -65,17 +65,22 @@ public class InsuranceQuoteController {
         summary = "List quotes",
         description = "Required scope: quote:read. Results are ordered by quote number, newest first, and never exceed 100 per page. "
             + "The optional q parameter filters by quote number, quote ID, customer name, customer number, "
-            + "customer ID, coverage type, payment frequency or creator."
+            + "customer ID, coverage type, payment frequency or creator. The optional coverageType parameter "
+            + "(AUTO, HOME, LIFE or HEALTH, case-insensitive) restricts results to that coverage type and can be "
+            + "combined with q."
     )
-    @ApiResponse(responseCode = "400", description = "Invalid paging parameters or search term",
+    @ApiResponse(responseCode = "400", description = "Invalid paging parameters, search term or coverage type",
         content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
     public QuotePageResponseDto listQuotes(
         @Parameter(description = "Zero-based page index") @RequestParam(name = "page", defaultValue = "0") int page,
         @Parameter(description = "Page size, between 1 and 100") @RequestParam(name = "size", defaultValue = "20") int size,
         @Parameter(description = "Case-insensitive search text, at most 80 characters")
-        @RequestParam(name = "q", required = false) String query
+        @RequestParam(name = "q", required = false) String query,
+        @Parameter(description = "Exact coverage type filter: AUTO, HOME, LIFE or HEALTH")
+        @RequestParam(name = "coverageType", required = false) String coverageType
     ) {
-        return QuotePageResponseDto.fromDomain(listQuotesUseCase.listQuotes(page, size, query), LocalDate.now(clock));
+        return QuotePageResponseDto.fromDomain(
+            listQuotesUseCase.listQuotes(page, size, query, coverageType), LocalDate.now(clock));
     }
 
     @PostMapping("/quotes")

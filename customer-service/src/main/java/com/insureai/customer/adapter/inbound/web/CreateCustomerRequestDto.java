@@ -20,6 +20,7 @@ import com.insureai.customer.domain.model.MaritalStatus;
 public record CreateCustomerRequestDto(
     @NotBlank(message = "fullName is required")
     @Size(min = 2, max = 80, message = "fullName must be between 2 and 80 characters")
+    @Pattern(regexp = "^\\s*\\p{L}[\\p{L}\\p{M} .'-]*$", message = "fullName may contain only letters, spaces, apostrophes, hyphens and periods")
     String fullName,
 
     @NotBlank(message = "email is required")

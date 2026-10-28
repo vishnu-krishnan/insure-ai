@@ -9,11 +9,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 import com.insureai.customer.application.port.outbound.CustomerRepositoryPort;
+import com.insureai.customer.domain.exception.DuplicateCustomerException;
 import com.insureai.customer.domain.model.Address;
 import com.insureai.customer.domain.model.CustomerProfile;
 import com.insureai.customer.domain.model.Gender;
@@ -32,6 +34,10 @@ public class PostgresCustomerRepository implements CustomerRepositoryPort {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         RETURNING customer_number, annual_income, created_at, updated_at
         """;
+    private static final String EMAIL_EXISTS = "SELECT EXISTS (SELECT 1 FROM customer_profile WHERE lower(email) = lower(?))";
+    private static final String PHONE_EXISTS = "SELECT EXISTS (SELECT 1 FROM customer_profile WHERE phone = ?)";
+    private static final String EMAIL_UNIQUE_INDEX = "customer_profile_email_unique";
+    private static final String PHONE_UNIQUE_INDEX = "customer_profile_phone_unique";
     private static final String CUSTOMER_COLUMNS = """
         customer_id, customer_number, full_name, email, phone, date_of_birth,
         gender, marital_status, occupation, annual_income,
@@ -69,6 +75,31 @@ public class PostgresCustomerRepository implements CustomerRepositoryPort {
 
     @Override
     public CustomerProfile save(CustomerProfile customer) {
+        try {
+            return insert(customer);
+        } catch (DuplicateKeyException exception) {
+            String message = String.valueOf(exception.getMostSpecificCause().getMessage());
+            if (message.contains(EMAIL_UNIQUE_INDEX)) {
+                throw new DuplicateCustomerException("email");
+            }
+            if (message.contains(PHONE_UNIQUE_INDEX)) {
+                throw new DuplicateCustomerException("phone");
+            }
+            throw exception;
+        }
+    }
+
+    @Override
+    public boolean existsByEmail(String email) {
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(EMAIL_EXISTS, Boolean.class, email));
+    }
+
+    @Override
+    public boolean existsByPhone(String phone) {
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(PHONE_EXISTS, Boolean.class, phone));
+    }
+
+    private CustomerProfile insert(CustomerProfile customer) {
         Address address = customer.address();
         Nominee nominee = customer.nominee();
         return jdbcTemplate.queryForObject(

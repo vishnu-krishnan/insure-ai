@@ -2,6 +2,7 @@ import {
   Card,
   Group,
   NativeSelect,
+  ScrollArea,
   NumberInput,
   SegmentedControl,
   SimpleGrid,
@@ -56,7 +57,9 @@ function Panel({ inputs, result, details }: { inputs: ReactNode; result: ReactNo
             <Text fw={650} fz="lg">
               Year by year
             </Text>
-            {details}
+            <ScrollArea.Autosize mah={340} type="auto" offsetScrollbars>
+              {details}
+            </ScrollArea.Autosize>
           </Stack>
         </Card>
       )}
@@ -98,8 +101,8 @@ function InterestTab() {
     )
     if (!simple) {
       details = (
-        <Table.ScrollContainer minWidth={240}>
-          <Table verticalSpacing="xs">
+        <Table.ScrollContainer minWidth={240} type="native">
+          <Table verticalSpacing="xs" striped highlightOnHover stickyHeader>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Year</Table.Th>
@@ -175,8 +178,8 @@ function LoanTab() {
       </Stack>
     )
     details = (
-      <Table.ScrollContainer minWidth={320}>
-        <Table verticalSpacing="xs">
+      <Table.ScrollContainer minWidth={320} type="native">
+        <Table verticalSpacing="xs" striped highlightOnHover stickyHeader>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Year</Table.Th>

@@ -27,6 +27,9 @@ import { Link } from 'react-router-dom'
 import { searchCustomers } from '../../api/customers'
 import { listQuotes } from '../../api/quotes'
 import { useAuth } from '../../auth/useAuth'
+import { COVER_GUIDES } from '../../features/insurance/catalogue'
+import { portalPath } from '../../features/portal/paths'
+import { coverageStyle } from '../../features/shared/coverage'
 import { PageHeader } from '../../features/shared/PageHeader'
 import { HeroArt } from './HeroArt'
 
@@ -154,6 +157,32 @@ function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`
 }
 
+function PortalTile({ code }: { code: string }) {
+  const style = coverageStyle(code)
+  const count = useQuery({ queryKey: ['dashboard', 'portal', code], queryFn: () => listQuotes(0, 1, '', code) })
+  return (
+    <UnstyledButton component={Link} to={portalPath(code)} aria-label={`${style.label} insurance`}>
+      <Card p="md" className="lift" h="100%">
+        <Group wrap="nowrap">
+          <ThemeIcon size={44} radius="md" variant="light" color={style.color}>
+            <style.icon size={24} stroke={1.6} />
+          </ThemeIcon>
+          <Stack gap={0}>
+            <Text fw={650}>{`${style.label} insurance`}</Text>
+            {count.data ? (
+              <Text size="sm" c="dimmed">
+                {plural(count.data.totalElements, 'quote', 'quotes')}
+              </Text>
+            ) : (
+              <Skeleton h={14} w={70} mt={4} />
+            )}
+          </Stack>
+        </Group>
+      </Card>
+    </UnstyledButton>
+  )
+}
+
 export function Dashboard() {
   const { user } = useAuth()
   const customers = useQuery({ queryKey: ['dashboard', 'customers'], queryFn: () => searchCustomers('', 0, 1) })
@@ -161,7 +190,10 @@ export function Dashboard() {
 
   return (
     <Stack gap="lg">
-      <PageHeader title="Dashboard" description="Create customers and quotes, or find one you already have." />
+      <PageHeader
+        title="Dashboard"
+        description="Your day at a glance: open an insurance portal, register a customer or look up an existing quote."
+      />
       <Box
         p={{ base: 'lg', sm: 'xl' }}
         style={{
@@ -177,7 +209,8 @@ export function Dashboard() {
               Welcome back, {user?.name}
             </Title>
             <Text c="white" opacity={0.9} maw={460}>
-              Start with a customer, then price a quote for them. Everything you create is searchable by its ID.
+              Register a customer once, then quote any cover for them from its own portal. Every customer and quote has
+              a short ID you can search by.
             </Text>
           </Stack>
           <Box visibleFrom="sm" style={{ flexShrink: 0 }}>
@@ -185,10 +218,20 @@ export function Dashboard() {
           </Box>
         </Group>
       </Box>
+      <Stack gap="xs">
+        <Text fw={650} fz="lg">
+          Insurance portals
+        </Text>
+        <SimpleGrid cols={{ base: 1, xs: 2, lg: 4 }} spacing="md">
+          {COVER_GUIDES.map((guide) => (
+            <PortalTile key={guide.code} code={guide.code} />
+          ))}
+        </SimpleGrid>
+      </Stack>
       <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
         <ServiceCard
           title="Customer service"
-          description="Customer profiles and their contact details."
+          description="Profiles, contact details, addresses and nominees for every policyholder."
           icon={IconUsers}
           color="brand"
           loading={customers.isPending}
@@ -204,7 +247,7 @@ export function Dashboard() {
         />
         <ServiceCard
           title="Quote service"
-          description="Premium quotes for AUTO, HOME, LIFE and HEALTH cover."
+          description="Premium quotes for auto, home, life and health cover, kept against the customer they belong to."
           icon={IconFileText}
           color="violet"
           loading={quotes.isPending}

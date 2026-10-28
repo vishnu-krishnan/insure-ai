@@ -6,6 +6,9 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { listQuotes } from '../../api/quotes'
+import { coverageStyle } from '../shared/coverage'
+import { portalPath } from '../portal/paths'
+import { describeDetails } from '../portal/typeFields'
 import { CoverageBadge } from '../shared/CoverageBadge'
 import { MobileCard } from '../shared/MobileCards'
 import { PageHeader } from '../shared/PageHeader'
@@ -26,7 +29,17 @@ function readSize(value: string | null): number {
   return PAGE_SIZES.includes(parsed) ? parsed : DEFAULT_SIZE
 }
 
-export function QuoteListPage() {
+function summarise(type: string, details: Record<string, unknown> | null | undefined): string {
+  const rows = describeDetails(type, details)
+  return rows.length === 0
+    ? 'Not recorded'
+    : rows
+        .slice(0, 3)
+        .map((row) => row.value)
+        .join(' · ')
+}
+
+export function QuoteListPage({ type }: { type?: string } = {}) {
   const [params, setParams] = useSearchParams()
   const text = params.get('q') ?? ''
   const page = readPage(params.get('page'))
@@ -44,8 +57,8 @@ export function QuoteListPage() {
   }, [debounced])
 
   const query = useQuery({
-    queryKey: ['quotes', text, page, size],
-    queryFn: () => listQuotes(page, size, text),
+    queryKey: ['quotes', type ?? '', text, page, size],
+    queryFn: () => listQuotes(page, size, text, type ?? ''),
     placeholderData: keepPreviousData,
   })
 
@@ -55,12 +68,20 @@ export function QuoteListPage() {
 
   const header = (
     <PageHeader
-      icon={IconFileText}
-      eyebrow="Quote service"
-      title="Quotes"
-      description="Every quote created, newest first."
+      icon={type ? coverageStyle(type).icon : IconFileText}
+      eyebrow={type ? 'Insurance portal' : 'Quote service'}
+      title={type ? `${coverageStyle(type).label} insurance` : 'Quotes'}
+      description={
+        type
+          ? `Every ${coverageStyle(type).label.toLowerCase()} quote, newest first.`
+          : 'Every quote created, newest first.'
+      }
       actions={
-        <Button component={Link} to="/agent/quotes/new" leftSection={<IconPlus size={16} />}>
+        <Button
+          component={Link}
+          to={type ? `${portalPath(type)}/new` : '/agent/quotes/new'}
+          leftSection={<IconPlus size={16} />}
+        >
           New quote
         </Button>
       }
@@ -107,7 +128,13 @@ export function QuoteListPage() {
       {header}
       {search}
       {totalElements === 0 ? (
-        <Text>{text ? 'No quotes match your search' : 'No quotes yet'}</Text>
+        <Text>
+          {text
+            ? 'No quotes match your search'
+            : type
+              ? `No ${coverageStyle(type).label.toLowerCase()} quotes yet`
+              : 'No quotes yet'}
+        </Text>
       ) : pastEnd ? (
         <Stack align="flex-start">
           <Text>That page does not exist.</Text>
@@ -137,6 +164,7 @@ export function QuoteListPage() {
                   <Table.Th>Quote</Table.Th>
                   <Table.Th>Customer</Table.Th>
                   <Table.Th>Coverage</Table.Th>
+                  {type && <Table.Th>Details</Table.Th>}
                   <Table.Th ta="right">Amount</Table.Th>
                   <Table.Th ta="right">Annual</Table.Th>
                   <Table.Th ta="right">Monthly</Table.Th>
@@ -152,6 +180,13 @@ export function QuoteListPage() {
                     <Table.Td>
                       <CoverageBadge type={quote.coverageType} />
                     </Table.Td>
+                    {type && (
+                      <Table.Td>
+                        <Text size="sm" c="dimmed">
+                          {summarise(quote.coverageType, quote.details)}
+                        </Text>
+                      </Table.Td>
+                    )}
                     <Table.Td ta="right">{formatMoney(quote.coverageAmount)}</Table.Td>
                     <Table.Td ta="right">{formatMoney(quote.annualPremium)}</Table.Td>
                     <Table.Td ta="right">{formatMoney(quote.monthlyPremium)}</Table.Td>

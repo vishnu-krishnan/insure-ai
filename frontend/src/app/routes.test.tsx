@@ -102,6 +102,33 @@ describe('app routes', () => {
     expect(client.signIn).not.toHaveBeenCalled()
   })
 
+  it('opens a separate portal for each cover type and asks only the questions for that type', async () => {
+    server.use(
+      http.get('/api/v1/quotes', ({ request }) => {
+        expect(new URL(request.url).searchParams.get('coverageType')).toBe('HEALTH')
+        return HttpResponse.json({ content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 })
+      }),
+    )
+    renderAt('/agent/health', agent)
+
+    expect(await screen.findByRole('heading', { name: 'Health insurance' })).toBeInTheDocument()
+    expect(await screen.findByText('No health quotes yet')).toBeInTheDocument()
+  })
+
+  it('shows vehicle questions on the auto quote form and none for other types', async () => {
+    renderAt('/agent/auto/new', agent)
+
+    expect(await screen.findByLabelText('Vehicle make')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Plan tier')).not.toBeInTheDocument()
+  })
+
+  it('does not list customers until the agent starts searching', async () => {
+    renderAt('/agent/home/new', agent)
+
+    expect(await screen.findByText(/Start typing to find a customer/)).toBeInTheDocument()
+    expect(screen.queryByText('CUS-000001', { exact: false })).not.toBeInTheDocument()
+  })
+
   it('offers the calculator inside the agent workspace', async () => {
     renderAt('/agent/calculator', agent)
 

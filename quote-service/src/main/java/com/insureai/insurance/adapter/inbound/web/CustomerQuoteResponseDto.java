@@ -3,6 +3,7 @@ package com.insureai.insurance.adapter.inbound.web;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Map;
 
 import com.insureai.insurance.domain.model.PolicyQuote;
 
@@ -28,7 +29,8 @@ public record CustomerQuoteResponseDto(
     BigDecimal totalAnnualPayable,
     BigDecimal installmentAmount,
     Instant createdAt,
-    String createdBy
+    String createdBy,
+    Map<String, Object> details
 ) {
     public static CustomerQuoteResponseDto fromDomain(PolicyQuote quote, LocalDate today) {
         return new CustomerQuoteResponseDto(
@@ -53,7 +55,8 @@ public record CustomerQuoteResponseDto(
             quote.totalAnnualPayable(),
             quote.installmentAmount(),
             quote.createdAt(),
-            quote.createdBy()
+            quote.createdBy(),
+            quote.typeDetails()
         );
     }
 }

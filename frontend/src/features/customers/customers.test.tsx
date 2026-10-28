@@ -29,6 +29,28 @@ async function fillForm(overrides: Partial<typeof customer> = {}) {
 }
 
 describe('customer create page', () => {
+  it('builds the international number from the chosen country and the local number', async () => {
+    let body: Record<string, unknown> = {}
+    server.use(
+      http.post('/api/v1/customers', async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json(customer, { status: 201 })
+      }),
+    )
+    renderFeature(base, Component, `${base}/new`)
+
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Full name'), 'Asha Menon')
+    await user.type(screen.getByLabelText('Email'), 'asha@example.com')
+    await user.click(screen.getByRole('combobox', { name: 'Phone country' }))
+    await user.click(await screen.findByText('United Kingdom (+44)'))
+    await user.type(screen.getByLabelText('Phone'), '7911123456')
+    await user.type(screen.getByLabelText('Date of birth'), '1990-05-14')
+    await user.click(screen.getByRole('button', { name: 'Create customer' }))
+
+    await waitFor(() => expect(body).toMatchObject({ phone: '+447911123456' }))
+  })
+
   it('rejects a phone number that is not international before sending anything', async () => {
     let sent = false
     server.use(
@@ -106,7 +128,8 @@ describe('customer create page', () => {
     await user.type(screen.getByLabelText('City'), 'Pune')
     await user.type(screen.getByLabelText('State'), 'Maharashtra')
     await user.type(screen.getByLabelText('Postal code'), '411001')
-    await user.type(screen.getByLabelText('Country'), 'in')
+    await user.click(screen.getByRole('combobox', { name: 'Country' }))
+    await user.click(await screen.findByText('India'))
     await user.type(screen.getByLabelText('Nominee name'), 'Ravi Menon')
     await user.type(screen.getByLabelText('Relationship'), 'Spouse')
     await user.click(screen.getByRole('button', { name: 'Create customer' }))
@@ -176,7 +199,8 @@ describe('customer create page', () => {
     await user.type(screen.getByLabelText('City'), 'Pune')
     await user.type(screen.getByLabelText('State'), 'Maharashtra')
     await user.type(screen.getByLabelText('Postal code'), '411001')
-    await user.type(screen.getByLabelText('Country'), 'IN')
+    await user.click(screen.getByRole('combobox', { name: 'Country' }))
+    await user.click(await screen.findByText('India'))
     await user.click(screen.getByRole('button', { name: 'Create customer' }))
 
     expect(await screen.findAllByText('address.postalCode must be 3 to 12 letters')).toHaveLength(1)

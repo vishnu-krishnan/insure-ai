@@ -1,12 +1,14 @@
-import { Alert, Anchor, Button, Card, Group, Loader, SimpleGrid, Stack, Text } from '@mantine/core'
-import { IconUser } from '@tabler/icons-react'
+import { Alert, Anchor, Button, Card, Group, Loader, SimpleGrid, Stack, Text, ThemeIcon } from '@mantine/core'
+import { IconPlus, IconUser } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 
 import { getCustomer } from '../../api/customers'
 import { listQuotes } from '../../api/quotes'
 import type { Customer } from '../../api/schemas'
-import { CoverageBadge } from '../shared/CoverageBadge'
+import { COVER_GUIDES } from '../insurance/catalogue'
+import { portalPath } from '../portal/paths'
+import { coverageStyle } from '../shared/coverage'
 import { DetailRow } from '../shared/DetailRow'
 import { PageHeader } from '../shared/PageHeader'
 import { RefLabel } from '../shared/RefLabel'
@@ -44,28 +46,63 @@ function Address({ customer }: { customer: Customer }) {
   )
 }
 
-function CustomerQuotes({ customerNumber }: { customerNumber: string }) {
+function CustomerQuotes({ customerId, customerNumber }: { customerId: string; customerNumber: string }) {
   const query = useQuery({
     queryKey: ['quotes', 'customer', customerNumber],
-    queryFn: () => listQuotes(0, 5, customerNumber),
+    queryFn: () => listQuotes(0, 100, customerNumber),
   })
 
   return (
-    <Section title="Quotes">
+    <Section title="Insurance">
       {query.isPending && <Loader size="sm" aria-label="Loading quotes" />}
       {query.isError && <Text c="dimmed">Quotes could not be loaded</Text>}
-      {query.data && query.data.content.length === 0 && <Text c="dimmed">No quotes for this customer yet</Text>}
-      {query.data?.content.map((quote) => (
-        <Group key={quote.quoteId} justify="space-between" wrap="nowrap">
-          <Group gap="sm" wrap="nowrap">
-            <Anchor component={Link} to={`/agent/quotes/${quote.quoteId}`}>
-              {quote.quoteNumber}
-            </Anchor>
-            <CoverageBadge type={quote.coverageType} />
-          </Group>
-          <Text size="sm">{formatMoney(quote.annualPremium)} a year</Text>
-        </Group>
-      ))}
+      {query.data && (
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
+          {COVER_GUIDES.map((guide) => {
+            const style = coverageStyle(guide.code)
+            const quotes = query.data.content.filter((quote) => quote.coverageType === guide.code)
+            return (
+              <Card key={guide.code} withBorder p="md" radius="md" className="lift-soft">
+                <Stack gap="sm">
+                  <Group gap="sm" wrap="nowrap">
+                    <ThemeIcon size={36} radius="md" variant="light" color={style.color}>
+                      <style.icon size={20} />
+                    </ThemeIcon>
+                    <Stack gap={0}>
+                      <Text fw={650}>{style.label}</Text>
+                      <Text size="xs" c="dimmed">
+                        {quotes.length === 0
+                          ? 'No quotes yet'
+                          : `${quotes.length} ${quotes.length === 1 ? 'quote' : 'quotes'}`}
+                      </Text>
+                    </Stack>
+                  </Group>
+                  {quotes.slice(0, 3).map((quote) => (
+                    <Group key={quote.quoteId} justify="space-between" wrap="nowrap">
+                      <Anchor component={Link} to={`/agent/quotes/${quote.quoteId}`} size="sm">
+                        {quote.quoteNumber}
+                      </Anchor>
+                      <Text size="xs" c="dimmed">
+                        {formatMoney(quote.annualPremium)} a year
+                      </Text>
+                    </Group>
+                  ))}
+                  <Button
+                    component={Link}
+                    to={`${portalPath(guide.code)}/new?customerId=${customerId}`}
+                    variant="light"
+                    color={style.color}
+                    size="xs"
+                    leftSection={<IconPlus size={14} />}
+                  >
+                    {`New ${style.label.toLowerCase()} quote`}
+                  </Button>
+                </Stack>
+              </Card>
+            )
+          })}
+        </SimpleGrid>
+      )}
     </Section>
   )
 }
@@ -98,7 +135,7 @@ export function CustomerDetail() {
         icon={IconUser}
         eyebrow="Customer service"
         title={customer.fullName}
-        description="Customer profile"
+        description="Everything on file for this customer, with their quotes grouped by type of cover."
         actions={<RefLabel label={customer.customerNumber} id={customer.customerId} />}
       />
       <SimpleGrid cols={{ base: 1, md: 2 }}>
@@ -130,16 +167,13 @@ export function CustomerDetail() {
           )}
         </Section>
       </SimpleGrid>
-      <CustomerQuotes customerNumber={customer.customerNumber} />
+      <CustomerQuotes customerId={customer.customerId} customerNumber={customer.customerNumber} />
       {customer.createdAt && (
         <Text size="xs" c="dimmed">
           Created {new Date(customer.createdAt).toLocaleString()}
         </Text>
       )}
       <Group>
-        <Button component={Link} to={`/agent/quotes/new?customerId=${customer.customerId}`}>
-          Create a quote
-        </Button>
         <Anchor component={Link} to="/agent/customers">
           Back to customers
         </Anchor>

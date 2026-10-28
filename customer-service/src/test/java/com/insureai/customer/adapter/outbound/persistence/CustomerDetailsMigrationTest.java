@@ -13,6 +13,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,7 @@ class CustomerDetailsMigrationTest {
     );
     private static final String VALID_ADDRESS_COLUMNS =
         "address_line1, address_city, address_state, address_postal_code, address_country";
+    private static final AtomicInteger PHONE_SEQUENCE = new AtomicInteger(1000);
     private static final String VALID_ADDRESS_VALUES = "'1 Main St', 'Pune', 'MH', '411001', 'IN'";
 
     @Container
@@ -131,7 +133,7 @@ class CustomerDetailsMigrationTest {
     private static void insert(Statement statement, String columns, String values) throws SQLException {
         statement.executeUpdate("INSERT INTO customer_profile (customer_id, full_name, email, phone, date_of_birth, "
             + columns + ") VALUES ('" + UUID.randomUUID() + "', 'Detail Tester', '" + UUID.randomUUID()
-            + "@example.test', '+14155550199', '1990-01-01', " + values + ")");
+            + "@example.test', '+1415" + (5550000 + PHONE_SEQUENCE.incrementAndGet()) + "', '1990-01-01', " + values + ")");
     }
 
     private static Connection connection() throws SQLException {

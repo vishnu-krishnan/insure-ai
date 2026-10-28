@@ -39,6 +39,7 @@ import com.insureai.customer.application.port.inbound.GetCustomerUseCase;
 import com.insureai.customer.application.port.inbound.SearchCustomersUseCase;
 import com.insureai.customer.domain.exception.CustomerNotFoundException;
 import com.insureai.customer.domain.exception.CustomerValidationException;
+import com.insureai.customer.domain.exception.DuplicateCustomerException;
 import com.insureai.customer.domain.model.Address;
 import com.insureai.customer.domain.model.CustomerProfile;
 import com.insureai.customer.domain.model.Gender;
@@ -91,6 +92,45 @@ class CustomerControllerTest {
             .andExpect(jsonPath("$.customerNumber").value("CUS-000001"))
             .andExpect(jsonPath("$.email").value("alice@example.test"));
         verify(createCustomerUseCase).createCustomer(any(CreateCustomerCommand.class));
+    }
+
+    @Test
+    void duplicateEmailReturnsConflictProblemDetail() throws Exception {
+        when(createCustomerUseCase.createCustomer(any())).thenThrow(new DuplicateCustomerException("email"));
+
+        postCustomer("")
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.title").value("Duplicate customer"))
+            .andExpect(jsonPath("$.status").value(409))
+            .andExpect(jsonPath("$.detail").value("A customer with this email already exists"))
+            .andExpect(jsonPath("$.code").value("DUPLICATE_CUSTOMER_EMAIL"))
+            .andExpect(jsonPath("$.errors.length()").value(1))
+            .andExpect(jsonPath("$.errors[0].field").value("email"))
+            .andExpect(jsonPath("$.errors[0].message").value("A customer with this email already exists"));
+    }
+
+    @Test
+    void duplicatePhoneReturnsConflictProblemDetail() throws Exception {
+        when(createCustomerUseCase.createCustomer(any())).thenThrow(new DuplicateCustomerException("phone"));
+
+        postCustomer("")
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.detail").value("A customer with this phone number already exists"))
+            .andExpect(jsonPath("$.code").value("DUPLICATE_CUSTOMER_PHONE"))
+            .andExpect(jsonPath("$.errors[0].field").value("phone"))
+            .andExpect(jsonPath("$.errors[0].message").value("A customer with this phone number already exists"));
+    }
+
+    @Test
+    void rejectsFullNameWithDigitsOrSymbols() throws Exception {
+        mockMvc.perform(post("/api/v1/customers")
+                .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_customer:create")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{" + BASE_FIELDS.replace("Alice Smith", "Alice 2<b>") + "}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+            .andExpect(jsonPath("$.errors[?(@.field == 'fullName')]").isNotEmpty());
+        verifyNoInteractions(createCustomerUseCase);
     }
 
     @Test

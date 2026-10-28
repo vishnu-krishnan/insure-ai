@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { validateDetails } from '../features/portal/typeFields'
+
 export const COVERAGE_TYPES = ['AUTO', 'HOME', 'LIFE', 'HEALTH'] as const
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Enter a date')
@@ -212,6 +214,7 @@ export const customerQuoteRequestSchema = z
       .string()
       .trim()
       .regex(/^(\d{1,12}(\.\d{1,2})?)?$/, 'Enter an amount of zero or more with at most two decimals'),
+    details: z.record(z.string(), z.string()),
     startDate: z
       .string()
       .refine(
@@ -223,6 +226,11 @@ export const customerQuoteRequestSchema = z
       ),
   })
   .superRefine((value, context) => {
+    if (Object.keys(value.details).length > 0) {
+      for (const [key, message] of Object.entries(validateDetails(value.coverageType, value.details))) {
+        context.addIssue({ code: 'custom', path: ['details', key], message })
+      }
+    }
     if (
       value.deductible !== '' &&
       /^\d+(\.\d+)?$/.test(value.coverageAmount) &&
@@ -245,6 +253,7 @@ export const emptyQuoteForm: CustomerQuoteRequest = {
   paymentFrequency: '',
   deductible: '',
   startDate: '',
+  details: {},
 }
 
 const premiums = {
@@ -255,6 +264,7 @@ const premiums = {
   paymentFrequency: z.string().nullish(),
   deductible: z.number().nullish(),
   startDate: z.string().nullish(),
+  details: z.record(z.string(), z.unknown()).nullish(),
   validUntil: z.string().nullish(),
   status: z.string().nullish(),
   taxRate: z.number().nullish(),

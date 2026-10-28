@@ -1,8 +1,10 @@
 package com.insureai.customer.application.service;
 
 import java.time.LocalDate;
+import java.time.Period;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,12 +17,16 @@ import com.insureai.customer.application.port.inbound.SearchCustomersUseCase;
 import com.insureai.customer.application.port.outbound.CustomerRepositoryPort;
 import com.insureai.customer.domain.exception.CustomerNotFoundException;
 import com.insureai.customer.domain.exception.CustomerValidationException;
+import com.insureai.customer.domain.exception.DuplicateCustomerException;
 import com.insureai.customer.domain.model.CustomerProfile;
 
 @Service
 public class CustomerService implements CreateCustomerUseCase, GetCustomerUseCase, SearchCustomersUseCase {
     private static final int MAX_SEARCH_TEXT_LENGTH = 80;
     private static final int MAX_PAGE_SIZE = 100;
+    private static final int MIN_AGE = 18;
+    private static final int MAX_AGE = 75;
+    private static final Pattern FULL_NAME_PATTERN = Pattern.compile("^\\p{L}[\\p{L}\\p{M} .'-]*$");
 
     private final CustomerRepositoryPort customerRepository;
 
@@ -35,8 +41,16 @@ public class CustomerService implements CreateCustomerUseCase, GetCustomerUseCas
             || command.fullName().trim().length() < 2 || command.fullName().trim().length() > 80) {
             throw new CustomerValidationException("fullName must be between 2 and 80 characters");
         }
-        if (command.dateOfBirth() == null || !command.dateOfBirth().isBefore(LocalDate.now())) {
+        if (!FULL_NAME_PATTERN.matcher(command.fullName().trim()).matches()) {
+            throw new CustomerValidationException("fullName may contain only letters, spaces, apostrophes, hyphens and periods");
+        }
+        LocalDate today = LocalDate.now();
+        if (command.dateOfBirth() == null || !command.dateOfBirth().isBefore(today)) {
             throw new CustomerValidationException("dateOfBirth must be in the past");
+        }
+        int age = Period.between(command.dateOfBirth(), today).getYears();
+        if (age < MIN_AGE || age > MAX_AGE) {
+            throw new CustomerValidationException("customer age must be between " + MIN_AGE + " and " + MAX_AGE + " years");
         }
 
         CustomerProfile customer = CustomerProfile.create(
@@ -51,6 +65,12 @@ public class CustomerService implements CreateCustomerUseCase, GetCustomerUseCas
             command.address(),
             command.nominee()
         );
+        if (customerRepository.existsByEmail(customer.email())) {
+            throw new DuplicateCustomerException("email");
+        }
+        if (customerRepository.existsByPhone(customer.phone())) {
+            throw new DuplicateCustomerException("phone");
+        }
         return customerRepository.save(customer);
     }
 

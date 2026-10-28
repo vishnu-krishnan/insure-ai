@@ -26,13 +26,15 @@ import {
 import { useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 
+import { COVER_GUIDES } from '../features/insurance/catalogue'
+import { coverageStyle } from '../features/shared/coverage'
 import { useAuth } from '../auth/useAuth'
 import { publishColorScheme } from './themeSync'
 
 const links = [
   { to: '/agent', label: 'Dashboard', end: true, icon: IconLayoutDashboard },
   { to: '/agent/customers', label: 'Customers', end: false, icon: IconUsers },
-  { to: '/agent/quotes', label: 'Quotes', end: false, icon: IconFileText },
+  { to: '/agent/quotes', label: 'All quotes', end: false, icon: IconFileText },
   { to: '/agent/calculator', label: 'Calculator', end: false, icon: IconCalculator },
 ]
 
@@ -126,7 +128,42 @@ export function Shell() {
         <Text size="xs" fw={650} c="dimmed" tt="uppercase" mb="xs" px="sm">
           Agent workspace
         </Text>
-        {links.map((link) => (
+        {links.slice(0, 2).map((link) => (
+          <MantineNavLink
+            key={link.to}
+            component={NavLink}
+            to={link.to}
+            end={link.end}
+            label={link.label}
+            leftSection={<link.icon size={18} stroke={1.7} />}
+            variant="light"
+            fw={500}
+            style={{ borderRadius: 'var(--mantine-radius-md)', marginBottom: 4 }}
+          />
+        ))}
+        <Text size="xs" fw={650} c="dimmed" tt="uppercase" mt="md" mb="xs" px="sm">
+          Insurance
+        </Text>
+        {COVER_GUIDES.map((guide) => {
+          const style = coverageStyle(guide.code)
+          return (
+            <MantineNavLink
+              key={guide.slug}
+              component={NavLink}
+              to={`/agent/${guide.slug}`}
+              label={`${style.label} insurance`}
+              leftSection={<style.icon size={18} stroke={1.7} />}
+              color={style.color}
+              variant="light"
+              fw={500}
+              style={{ borderRadius: 'var(--mantine-radius-md)', marginBottom: 4 }}
+            />
+          )
+        })}
+        <Text size="xs" fw={650} c="dimmed" tt="uppercase" mt="md" mb="xs" px="sm">
+          Tools
+        </Text>
+        {links.slice(2).map((link) => (
           <MantineNavLink
             key={link.to}
             component={NavLink}

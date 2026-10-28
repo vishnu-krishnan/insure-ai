@@ -56,7 +56,7 @@ export function CustomerSearchPage() {
       icon={IconUsers}
       eyebrow="Customer service"
       title="Customers"
-      description="Search by name, customer ID, email or phone."
+      description="Find a policyholder by name, customer ID, email or phone, then open their record to see every policy."
       actions={
         <Button component={Link} to="/agent/customers/new" leftSection={<IconPlus size={16} />}>
           New customer

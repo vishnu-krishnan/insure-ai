@@ -21,5 +21,7 @@ export default defineConfig({
     env: { VITE_AUTH_MODE: 'mock' },
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
+    // The country lists make form pages heavy to render in jsdom.
+    testTimeout: 20000,
   },
 })

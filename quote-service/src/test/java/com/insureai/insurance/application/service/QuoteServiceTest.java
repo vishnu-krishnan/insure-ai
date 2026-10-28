@@ -17,7 +17,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -78,10 +80,10 @@ class QuoteServiceTest {
     @Test
     void listQuotesReturnsRequestedPageWithTotals() {
         PolicyQuote quote = quote("quote-1", "Alice Smith", CoverageType.AUTO, 35, "250000", "17500.00");
-        when(repository.findPage("", 40L, 20)).thenReturn(List.of(quote));
-        when(repository.count("")).thenReturn(41L);
+        when(repository.findPage("", null, 40L, 20)).thenReturn(List.of(quote));
+        when(repository.count("", null)).thenReturn(41L);
 
-        QuotePage page = quoteService.listQuotes(2, 20, null);
+        QuotePage page = quoteService.listQuotes(2, 20, null, null);
 
         assertEquals(List.of(quote), page.content());
         assertEquals(2, page.page());
@@ -92,38 +94,38 @@ class QuoteServiceTest {
 
     @Test
     void listQuotesRejectsInvalidPagingParameters() {
-        assertThrows(DomainValidationException.class, () -> quoteService.listQuotes(-1, 20, null));
-        assertThrows(DomainValidationException.class, () -> quoteService.listQuotes(0, 0, null));
+        assertThrows(DomainValidationException.class, () -> quoteService.listQuotes(-1, 20, null, null));
+        assertThrows(DomainValidationException.class, () -> quoteService.listQuotes(0, 0, null, null));
         assertThrows(DomainValidationException.class,
-            () -> quoteService.listQuotes(0, QuoteService.MAX_PAGE_SIZE + 1, null));
+            () -> quoteService.listQuotes(0, QuoteService.MAX_PAGE_SIZE + 1, null, null));
         verifyNoInteractions(repository);
     }
 
     @Test
     void listQuotesPassesTrimmedSearchTermToRepository() {
-        when(repository.findPage("alice", 0L, 20)).thenReturn(List.of());
-        when(repository.count("alice")).thenReturn(0L);
+        when(repository.findPage("alice", null, 0L, 20)).thenReturn(List.of());
+        when(repository.count("alice", null)).thenReturn(0L);
 
-        QuotePage page = quoteService.listQuotes(0, 20, "  alice ");
+        QuotePage page = quoteService.listQuotes(0, 20, "  alice ", null);
 
         assertEquals(0, page.totalElements());
-        verify(repository).findPage("alice", 0L, 20);
+        verify(repository).findPage("alice", null, 0L, 20);
     }
 
     @Test
     void listQuotesTreatsBlankSearchTermAsNoFilter() {
-        when(repository.findPage("", 0L, 20)).thenReturn(List.of());
-        when(repository.count("")).thenReturn(0L);
+        when(repository.findPage("", null, 0L, 20)).thenReturn(List.of());
+        when(repository.count("", null)).thenReturn(0L);
 
-        quoteService.listQuotes(0, 20, "   ");
+        quoteService.listQuotes(0, 20, "   ", null);
 
-        verify(repository).findPage("", 0L, 20);
+        verify(repository).findPage("", null, 0L, 20);
     }
 
     @Test
     void listQuotesRejectsSearchTermLongerThanMaximum() {
         DomainValidationException ex = assertThrows(DomainValidationException.class,
-            () -> quoteService.listQuotes(0, 20, "x".repeat(QuoteService.MAX_SEARCH_LENGTH + 1)));
+            () -> quoteService.listQuotes(0, 20, "x".repeat(QuoteService.MAX_SEARCH_LENGTH + 1), null));
 
         assertEquals("q must be at most 80 characters", ex.getMessage());
         verifyNoInteractions(repository);
@@ -439,6 +441,108 @@ class QuoteServiceTest {
         PolicyQuote quote = service.createQuote(command("Alice Smith", "AUTO", 35, new BigDecimal("250000")));
 
         assertEquals(Instant.parse("2026-10-26T00:00:00.123456Z"), quote.createdAt());
+    }
+
+    @Test
+    void createQuoteWithoutTypeDetailsKeepsThemNull() {
+        PolicyQuote quote = quoteService.createQuote(command("Alice Smith", "AUTO", 35, new BigDecimal("250000")));
+
+        assertNull(quote.typeDetails());
+    }
+
+    @Test
+    void createQuoteStoresValidatedTypeDetailsWithoutChangingPremium() {
+        PolicyQuote plain = quoteService.createQuote(command("Alice Smith", "AUTO", 35, new BigDecimal("250000")));
+        PolicyQuote detailed = quoteService.createQuote(commandWithTypeDetails("AUTO", autoDetails()));
+
+        assertEquals(autoDetails(), detailed.typeDetails());
+        assertEquals(plain.annualPremium(), detailed.annualPremium());
+        assertEquals(plain.taxAmount(), detailed.taxAmount());
+    }
+
+    @Test
+    void createQuoteRejectsInvalidTypeDetailsNamingTheField() {
+        Map<String, Object> invalid = autoDetails();
+        invalid.put("vehicleYear", 1900);
+
+        DomainValidationException exception = assertThrows(DomainValidationException.class,
+            () -> quoteService.createQuote(commandWithTypeDetails("AUTO", invalid)));
+
+        assertEquals("details.vehicleYear", exception.field());
+        verifyNoInteractions(repository);
+    }
+
+    @Test
+    void createQuoteRejectsDetailsForTheWrongCoverageType() {
+        DomainValidationException exception = assertThrows(DomainValidationException.class,
+            () -> quoteService.createQuote(commandWithTypeDetails("HOME", autoDetails())));
+
+        assertEquals("details.vehicleMake", exception.field());
+    }
+
+    @Test
+    void vehicleYearUpperBoundFollowsTheClockYear() {
+        Map<String, Object> nextYear = autoDetails();
+        nextYear.put("vehicleYear", 2027);
+        Map<String, Object> tooFar = autoDetails();
+        tooFar.put("vehicleYear", 2028);
+
+        assertEquals(2027, quoteService.createQuote(commandWithTypeDetails("AUTO", nextYear))
+            .typeDetails().get("vehicleYear"));
+        assertThrows(DomainValidationException.class,
+            () -> quoteService.createQuote(commandWithTypeDetails("AUTO", tooFar)));
+    }
+
+    @Test
+    void customerQuoteValidatesAndStoresTypeDetails() {
+        String customerId = "3b241101-e2bb-4255-8caf-4136c566a962";
+        when(customerProfileLookup.findCustomer(customerId)).thenReturn(
+            new CustomerProfileSnapshot(customerId, "Alice Smith", LocalDate.of(1990, 10, 27), null));
+        Map<String, Object> health = Map.of(
+            "members", 3, "preExistingConditions", false, "smoker", false, "planTier", "PREMIUM");
+
+        PolicyQuote quote = quoteService.createQuoteForCustomer(new CreateCustomerQuoteCommand(
+            customerId, "HEALTH", new BigDecimal("250000"), null, null, null, null, null, health));
+
+        assertEquals(health, quote.typeDetails());
+        assertThrows(DomainValidationException.class, () -> quoteService.createQuoteForCustomer(
+            new CreateCustomerQuoteCommand(customerId, "AUTO", new BigDecimal("250000"),
+                null, null, null, null, null, health)));
+    }
+
+    @Test
+    void listQuotesFiltersByCoverageTypeCaseInsensitively() {
+        PolicyQuote home = quote("quote-1", "Alice Smith", CoverageType.HOME, 35, "250000", "12500.00");
+        when(repository.findPage("alice", CoverageType.HOME, 0L, 20)).thenReturn(List.of(home));
+        when(repository.count("alice", CoverageType.HOME)).thenReturn(1L);
+
+        QuotePage page = quoteService.listQuotes(0, 20, "alice", " home ");
+
+        assertEquals(List.of(home), page.content());
+        assertEquals(1L, page.totalElements());
+    }
+
+    @Test
+    void listQuotesRejectsUnknownCoverageType() {
+        assertThrows(DomainValidationException.class, () -> quoteService.listQuotes(0, 20, null, "BOAT"));
+        assertThrows(DomainValidationException.class, () -> quoteService.listQuotes(0, 20, null, ""));
+        verifyNoInteractions(repository);
+    }
+
+    private static Map<String, Object> autoDetails() {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("vehicleMake", "Toyota");
+        map.put("vehicleModel", "Corolla");
+        map.put("vehicleYear", 2020);
+        map.put("registrationNumber", "KA01AB1234");
+        map.put("usage", "PRIVATE");
+        map.put("previousClaims", 1);
+        return map;
+    }
+
+    private static CreateQuoteCommand commandWithTypeDetails(String coverageType, Map<String, Object> details) {
+        return new CreateQuoteCommand(
+            "Alice Smith", coverageType, 35, new BigDecimal("250000"), null, null, null, null, null, details);
     }
 
     private static CreateQuoteCommand command(String name, String coverageType, int age, BigDecimal amount) {

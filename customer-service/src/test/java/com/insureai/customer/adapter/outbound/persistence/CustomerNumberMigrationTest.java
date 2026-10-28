@@ -104,7 +104,7 @@ class CustomerNumberMigrationTest {
             Set<String> numbers = new HashSet<>();
             for (int i = 1; i <= 2; i++) {
                 statement.executeUpdate("INSERT INTO customer_profile (customer_id, full_name, email, phone, date_of_birth) "
-                    + "VALUES ('eeeeeeee-0000-4000-8000-00000000000" + i + "', 'Big Number', 'big@example.test', '+14155550199', '1990-01-01')");
+                    + "VALUES ('eeeeeeee-0000-4000-8000-00000000000" + i + "', 'Big Number', 'big" + i + "@example.test', '+1415555019" + i + "', '1990-01-01')");
             }
             try (ResultSet rows = statement.executeQuery("SELECT customer_number FROM customer_profile")) {
                 while (rows.next()) {

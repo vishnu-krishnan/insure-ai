@@ -5,6 +5,9 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 
 public record PolicyQuote(
@@ -24,7 +27,8 @@ public record PolicyQuote(
     BigDecimal taxRate,
     BigDecimal taxAmount,
     Instant createdAt,
-    String createdBy
+    String createdBy,
+    Map<String, Object> typeDetails
 ) {
     public static final int VALIDITY_DAYS = 30;
 
@@ -40,13 +44,38 @@ public record PolicyQuote(
         Objects.requireNonNull(taxRate, "taxRate is required");
         Objects.requireNonNull(taxAmount, "taxAmount is required");
         Objects.requireNonNull(createdAt, "createdAt is required");
+        typeDetails = typeDetails == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(typeDetails));
+    }
+
+    public PolicyQuote(
+        String quoteId,
+        String customerName,
+        CoverageType coverageType,
+        int age,
+        BigDecimal coverageAmount,
+        BigDecimal annualPremium,
+        String customerId,
+        String quoteNumber,
+        String customerNumber,
+        int policyTermYears,
+        PaymentFrequency paymentFrequency,
+        BigDecimal deductible,
+        LocalDate startDate,
+        BigDecimal taxRate,
+        BigDecimal taxAmount,
+        Instant createdAt,
+        String createdBy
+    ) {
+        this(quoteId, customerName, coverageType, age, coverageAmount, annualPremium, customerId, quoteNumber,
+            customerNumber, policyTermYears, paymentFrequency, deductible, startDate, taxRate, taxAmount, createdAt,
+            createdBy, null);
     }
 
     public PolicyQuote withQuoteNumber(String assignedQuoteNumber) {
         return new PolicyQuote(
             quoteId, customerName, coverageType, age, coverageAmount, annualPremium, customerId,
             assignedQuoteNumber, customerNumber, policyTermYears, paymentFrequency, deductible, startDate,
-            taxRate, taxAmount, createdAt, createdBy);
+            taxRate, taxAmount, createdAt, createdBy, typeDetails);
     }
 
     public BigDecimal monthlyPremium() {

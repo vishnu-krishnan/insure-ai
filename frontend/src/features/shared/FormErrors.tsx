@@ -7,7 +7,7 @@ export function FormErrors({ error }: { error: ErrorSummary | null }) {
     return null
   }
   return (
-    <Alert color="red" title="The request failed" role="alert">
+    <Alert color="red" title="We could not save this" role="alert">
       {error.message}
       {error.correlationId && (
         <Text size="xs" mt={4}>

@@ -1,6 +1,7 @@
 package com.insureai.customer.adapter.inbound.web;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +20,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import com.insureai.customer.domain.exception.CustomerNotFoundException;
 import com.insureai.customer.domain.exception.CustomerValidationException;
+import com.insureai.customer.domain.exception.DuplicateCustomerException;
 
 @RestControllerAdvice
 public class CustomerExceptionHandler extends ResponseEntityExceptionHandler {
@@ -42,6 +44,18 @@ public class CustomerExceptionHandler extends ResponseEntityExceptionHandler {
             exception.getMessage(),
             "INVALID_CUSTOMER_REQUEST"
         );
+    }
+
+    @ExceptionHandler(DuplicateCustomerException.class)
+    public ResponseEntity<ProblemDetail> handleDuplicate(DuplicateCustomerException exception) {
+        ProblemDetail problem = ApiProblem.of(
+            HttpStatus.CONFLICT,
+            "Duplicate customer",
+            exception.getMessage(),
+            "DUPLICATE_CUSTOMER_" + exception.field().toUpperCase(Locale.ROOT)
+        );
+        problem.setProperty("errors", List.of(new FieldViolation(exception.field(), exception.getMessage())));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
     }
 
     @ExceptionHandler(DataAccessException.class)

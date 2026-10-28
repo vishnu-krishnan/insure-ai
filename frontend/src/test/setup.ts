@@ -34,3 +34,6 @@ class ResizeObserverStub {
   disconnect() {}
 }
 window.ResizeObserver = ResizeObserverStub
+
+// jsdom does not implement scrolling; the dropdown lists call it when an option is highlighted.
+Element.prototype.scrollIntoView = () => {}

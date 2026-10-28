@@ -1,4 +1,5 @@
 import { getConfig } from '../config'
+import { toDetailsPayload } from '../features/portal/typeFields'
 import { request } from './http'
 import {
   customerQuoteResponseSchema,
@@ -16,7 +17,7 @@ const AMOUNT_PLACEHOLDER = '"__amount__"'
 // values are not rounded through a binary float. The schema has already
 // limited it to digits with an optional two-decimal fraction.
 function quoteBody(input: CustomerQuoteRequest): string {
-  const { policyTermYears, paymentFrequency, deductible, startDate, ...required } = input
+  const { policyTermYears, paymentFrequency, deductible, startDate, details, ...required } = input
   const json = JSON.stringify({
     ...required,
     coverageAmount: '__amount__',
@@ -24,6 +25,7 @@ function quoteBody(input: CustomerQuoteRequest): string {
     ...(paymentFrequency ? { paymentFrequency } : {}),
     ...(deductible ? { deductible: Number(deductible) } : {}),
     ...(startDate ? { startDate } : {}),
+    ...(Object.keys(details).length > 0 ? { details: toDetailsPayload(input.coverageType, details) } : {}),
   })
   return json.replace(AMOUNT_PLACEHOLDER, input.coverageAmount)
 }
@@ -39,8 +41,11 @@ export function getQuote(quoteId: string): Promise<QuoteSummary> {
   return request(getConfig().apiBase.quotes, `/api/v1/quotes/${encodeURIComponent(quoteId)}`, quoteSummarySchema)
 }
 
-export function listQuotes(page: number, size: number, text = ''): Promise<QuotePage> {
+export function listQuotes(page: number, size: number, text = '', coverageType = ''): Promise<QuotePage> {
   const params = new URLSearchParams({ page: String(page), size: String(size) })
+  if (coverageType) {
+    params.set('coverageType', coverageType)
+  }
   if (text.trim()) {
     params.set('q', text.trim())
   }

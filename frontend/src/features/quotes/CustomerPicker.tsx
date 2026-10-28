@@ -38,7 +38,7 @@ export function CustomerPicker({ initialId = '', error, onChange }: Props) {
   const results = useQuery({
     queryKey: ['customers', 'picker', debounced],
     queryFn: () => searchCustomers(debounced, 0, 5),
-    enabled: selected === null,
+    enabled: selected === null && debounced.trim() !== '',
   })
 
   function choose(customer: Customer | null) {
@@ -69,6 +69,7 @@ export function CustomerPicker({ initialId = '', error, onChange }: Props) {
     )
   }
 
+  const searching = debounced.trim() !== ''
   const message = error ?? preselectError ?? undefined
   return (
     <Stack gap="xs">
@@ -80,23 +81,29 @@ export function CustomerPicker({ initialId = '', error, onChange }: Props) {
         error={message}
         onChange={(event) => setTyped(event.currentTarget.value)}
       />
-      {results.isPending && <Loader size="xs" aria-label="Searching customers" />}
-      {results.isError && <Alert color="red" title={describeError(results.error).message} />}
-      {results.data && results.data.content.length === 0 && (
+      {!searching && (
+        <Text size="sm" c="dimmed">
+          Start typing to find a customer. Or open a customer and choose a cover from there.
+        </Text>
+      )}
+      {searching && results.isPending && <Loader size="xs" aria-label="Searching customers" />}
+      {searching && results.isError && <Alert color="red" title={describeError(results.error).message} />}
+      {searching && results.data && results.data.content.length === 0 && (
         <Text size="sm" c="dimmed">
           No customers match your search
         </Text>
       )}
-      {results.data?.content.map((customer) => (
-        <UnstyledButton key={customer.customerId} onClick={() => choose(customer)}>
-          <Card padding="sm" className="lift-soft">
-            <Text fw={600}>{customer.fullName}</Text>
-            <Text size="sm" c="dimmed">
-              {customer.customerNumber} · {customer.email}
-            </Text>
-          </Card>
-        </UnstyledButton>
-      ))}
+      {searching &&
+        results.data?.content.map((customer) => (
+          <UnstyledButton key={customer.customerId} onClick={() => choose(customer)}>
+            <Card padding="sm" className="lift-soft">
+              <Text fw={600}>{customer.fullName}</Text>
+              <Text size="sm" c="dimmed">
+                {customer.customerNumber} · {customer.email}
+              </Text>
+            </Card>
+          </UnstyledButton>
+        ))}
     </Stack>
   )
 }

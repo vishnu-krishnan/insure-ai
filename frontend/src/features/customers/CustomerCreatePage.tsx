@@ -11,6 +11,8 @@ import {
   toCustomerPayload,
   type CustomerRequest,
 } from '../../api/schemas'
+import { CountrySelect } from '../shared/CountrySelect'
+import { PhoneField } from '../shared/PhoneField'
 import { PageHeader } from '../shared/PageHeader'
 import { FormErrors } from '../shared/FormErrors'
 import { useApiForm } from '../shared/useApiForm'
@@ -48,7 +50,10 @@ export function CustomerCreatePage() {
   )
   const {
     register,
-    formState: { errors },
+    watch,
+    getValues,
+    setValue,
+    formState: { errors, isSubmitted },
   } = form
 
   return (
@@ -58,7 +63,7 @@ export function CustomerCreatePage() {
           icon={IconUserPlus}
           eyebrow="Customer service"
           title="New customer"
-          description="Register a customer profile before creating a quote."
+          description="Add the policyholder's details once. You can quote any type of cover for them afterwards."
         />
         <FormErrors error={formError} />
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg" style={{ alignItems: 'start' }}>
@@ -114,19 +119,20 @@ export function CustomerCreatePage() {
                   error={errors.email?.message}
                   {...register('email')}
                 />
-                <TextInput
+                <PhoneField
                   label="Phone"
-                  type="tel"
-                  autoComplete="tel"
-                  placeholder="+919876543210"
+                  value={getValues('phone')}
                   error={errors.phone?.message}
-                  {...register('phone')}
+                  onChange={(value) => setValue('phone', value, { shouldValidate: isSubmitted })}
                 />
               </SimpleGrid>
             </Section>
           </Stack>
           <Stack>
-            <Section title="Address" hint="Optional. If you start the address, fill in every line except the second.">
+            <Section
+              title="Address"
+              hint="Optional, but a quote is easier to issue with one on file. If you start an address, complete every line except line 2."
+            >
               <TextInput
                 label="Address line 1"
                 autoComplete="address-line1"
@@ -148,16 +154,15 @@ export function CustomerCreatePage() {
                   error={errors.address?.postalCode?.message}
                   {...register('address.postalCode')}
                 />
-                <TextInput
+                <CountrySelect
                   label="Country"
-                  placeholder="IN"
-                  maxLength={2}
+                  value={watch('address.country')}
                   error={errors.address?.country?.message}
-                  {...register('address.country')}
+                  onChange={(code) => setValue('address.country', code, { shouldValidate: isSubmitted })}
                 />
               </SimpleGrid>
             </Section>
-            <Section title="Nominee" hint="Optional. Who the customer names to receive benefits.">
+            <Section title="Nominee" hint="Optional. The person who receives the benefit if a claim is paid out.">
               <SimpleGrid cols={{ base: 1, sm: 2 }}>
                 <TextInput label="Nominee name" error={errors.nominee?.name?.message} {...register('nominee.name')} />
                 <TextInput

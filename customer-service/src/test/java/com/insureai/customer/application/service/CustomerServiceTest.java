@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -24,6 +25,7 @@ import com.insureai.customer.application.port.inbound.CreateCustomerCommand;
 import com.insureai.customer.application.port.inbound.CustomerPage;
 import com.insureai.customer.application.port.outbound.CustomerRepositoryPort;
 import com.insureai.customer.domain.exception.CustomerNotFoundException;
+import com.insureai.customer.domain.exception.DuplicateCustomerException;
 import com.insureai.customer.domain.exception.CustomerValidationException;
 import com.insureai.customer.domain.model.Address;
 import com.insureai.customer.domain.model.CustomerProfile;
@@ -88,6 +90,82 @@ class CustomerServiceTest {
             new CreateCustomerCommand("Alice Smith", "alice@example.test", "+14155552671", LocalDate.now().plusDays(1),
                 null, null, null, null, null, null)
         ));
+    }
+
+    @Test
+    void rejectsDuplicateEmailComparedCaseInsensitively() {
+        when(customerRepository.existsByEmail("alice@example.test")).thenReturn(true);
+
+        DuplicateCustomerException exception = assertThrows(DuplicateCustomerException.class, () -> customerService.createCustomer(
+            new CreateCustomerCommand("Alice Smith", " ALICE@Example.TEST ", "+14155552671", LocalDate.of(1990, 1, 1),
+                null, null, null, null, null, null)
+        ));
+
+        assertEquals("email", exception.field());
+        assertEquals("A customer with this email already exists", exception.getMessage());
+        verify(customerRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectsDuplicatePhoneComparedAfterTrimming() {
+        when(customerRepository.existsByPhone("+14155552671")).thenReturn(true);
+
+        DuplicateCustomerException exception = assertThrows(DuplicateCustomerException.class, () -> customerService.createCustomer(
+            new CreateCustomerCommand("Alice Smith", "alice@example.test", " +14155552671 ", LocalDate.of(1990, 1, 1),
+                null, null, null, null, null, null)
+        ));
+
+        assertEquals("phone", exception.field());
+        assertEquals("A customer with this phone number already exists", exception.getMessage());
+        verify(customerRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectsUnderageAndOverageCustomers() {
+        LocalDate today = LocalDate.now();
+        for (LocalDate dateOfBirth : List.of(today.minusYears(18).plusDays(1), today.minusYears(76))) {
+            assertThrows(CustomerValidationException.class, () -> customerService.createCustomer(
+                new CreateCustomerCommand("Alice Smith", "alice@example.test", "+14155552671", dateOfBirth,
+                    null, null, null, null, null, null)
+            ), dateOfBirth.toString());
+        }
+        verifyNoInteractions(customerRepository);
+    }
+
+    @Test
+    void acceptsCustomersAtAgeBoundaries() {
+        when(customerRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        LocalDate today = LocalDate.now();
+
+        for (LocalDate dateOfBirth : List.of(today.minusYears(18), today.minusYears(75))) {
+            assertEquals(dateOfBirth, customerService.createCustomer(
+                new CreateCustomerCommand("Alice Smith", "alice@example.test", "+14155552671", dateOfBirth,
+                    null, null, null, null, null, null)
+            ).dateOfBirth());
+        }
+    }
+
+    @Test
+    void rejectsFullNamesWithDigitsOrSymbols() {
+        for (String name : List.of("Alice 2", "Alice <script>", "1234", "Alice_Smith", "--", "Al!ce")) {
+            assertThrows(CustomerValidationException.class, () -> customerService.createCustomer(
+                new CreateCustomerCommand(name, "alice@example.test", "+14155552671", LocalDate.of(1990, 1, 1),
+                    null, null, null, null, null, null)
+            ), name);
+        }
+        verifyNoInteractions(customerRepository);
+    }
+
+    @Test
+    void acceptsRealisticFullNames() {
+        when(customerRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        for (String name : List.of("Alice Smith", "Mary-Jane O'Neil", "Dr. Ana de la Cruz", "Jos\u00e9 N\u00fa\u00f1ez", "Li Wei")) {
+            assertEquals(name, customerService.createCustomer(
+                new CreateCustomerCommand(name, "alice@example.test", "+14155552671", LocalDate.of(1990, 1, 1),
+                    null, null, null, null, null, null)
+            ).fullName());
+        }
     }
 
     @Test

@@ -29,6 +29,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.insureai.customer.application.port.outbound.CustomerRepositoryPort;
+import com.insureai.customer.domain.exception.DuplicateCustomerException;
 import com.insureai.customer.domain.model.Address;
 import com.insureai.customer.domain.model.CustomerProfile;
 import com.insureai.customer.domain.model.Gender;
@@ -69,7 +70,7 @@ class PostgresCustomerRepositoryIntegrationTest {
 
     @Test
     void appliesCustomerOwnedMigrationAndPersistsProfile() {
-        assertEquals("3", flyway.info().current().getVersion().getVersion());
+        assertEquals("4", flyway.info().current().getVersion().getVersion());
         CustomerProfile unsaved = profile("3b241101-e2bb-4255-8caf-4136c566a962", "Alice Smith", "alice@example.test", "+14155552671");
 
         CustomerProfile saved = customerRepository.save(unsaved);
@@ -214,6 +215,31 @@ class PostgresCustomerRepositoryIntegrationTest {
         assertEquals(List.of(saved), customerRepository.search("qx9-77", 0, 10));
         assertEquals(1, customerRepository.countSearch("QX9-77Z"));
         assertEquals(0, customerRepository.countSearch("Harbor Way"));
+    }
+
+    @Test
+    void rejectsDuplicateEmailIgnoringCase() {
+        customerRepository.save(profile(UUID.randomUUID().toString(), "Dup Email", "dup.email@example.test", "+14155550031"));
+
+        DuplicateCustomerException exception = assertThrows(DuplicateCustomerException.class, () -> customerRepository.save(
+            profile(UUID.randomUUID().toString(), "Dup Email Two", "DUP.Email@Example.test", "+14155550032")));
+
+        assertEquals("email", exception.field());
+        assertTrue(customerRepository.existsByEmail("dup.email@example.test"));
+        assertFalse(customerRepository.existsByEmail("nobody@example.test"));
+        assertEquals(0, customerRepository.countSearch("+14155550032"));
+    }
+
+    @Test
+    void rejectsDuplicatePhone() {
+        customerRepository.save(profile(UUID.randomUUID().toString(), "Dup Phone", "dup.phone1@example.test", "+14155550033"));
+
+        DuplicateCustomerException exception = assertThrows(DuplicateCustomerException.class, () -> customerRepository.save(
+            profile(UUID.randomUUID().toString(), "Dup Phone Two", "dup.phone2@example.test", "+14155550033")));
+
+        assertEquals("phone", exception.field());
+        assertTrue(customerRepository.existsByPhone("+14155550033"));
+        assertFalse(customerRepository.existsByPhone("+14155550034"));
     }
 
     private static CustomerProfile detailed(String id, String name, String email, String phone, String occupation, Address address) {

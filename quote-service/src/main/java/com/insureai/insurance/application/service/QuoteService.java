@@ -9,6 +9,7 @@ import java.time.Period;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -33,6 +34,7 @@ import com.insureai.insurance.domain.exception.QuoteNotFoundException;
 import com.insureai.insurance.domain.model.CoverageType;
 import com.insureai.insurance.domain.model.PaymentFrequency;
 import com.insureai.insurance.domain.model.PolicyQuote;
+import com.insureai.insurance.domain.model.QuoteTypeDetails;
 
 @Service
 public class QuoteService
@@ -79,7 +81,10 @@ public class QuoteService
             command.policyTermYears(), command.paymentFrequency(), command.deductible(), command.startDate(),
             command.coverageAmount(), command.createdBy());
 
-        return createQuote(null, null, customerName, coverageType, command.age(), command.coverageAmount(), details);
+        Map<String, Object> typeDetails = QuoteTypeDetails.validate(coverageType, command.details(), currentYear());
+
+        return createQuote(null, null, customerName, coverageType, command.age(), command.coverageAmount(), details,
+            typeDetails);
     }
 
     @Override
@@ -90,6 +95,8 @@ public class QuoteService
         PolicyDetails details = resolveDetails(
             command.policyTermYears(), command.paymentFrequency(), command.deductible(), command.startDate(),
             command.coverageAmount(), command.createdBy());
+
+        Map<String, Object> typeDetails = QuoteTypeDetails.validate(coverageType, command.details(), currentYear());
 
         String customerId;
         try {
@@ -111,7 +118,7 @@ public class QuoteService
         }
         int age = Period.between(customer.dateOfBirth(), LocalDate.now(clock)).getYears();
         return createQuote(customerId, customer.customerNumber(), customerName, coverageType, age,
-            command.coverageAmount(), details);
+            command.coverageAmount(), details, typeDetails);
     }
 
     @Override
@@ -123,7 +130,7 @@ public class QuoteService
 
     @Override
     @Transactional(readOnly = true)
-    public QuotePage listQuotes(int page, int size, String query) {
+    public QuotePage listQuotes(int page, int size, String query, String coverageType) {
         if (page < 0) {
             throw new DomainValidationException("page must be zero or greater");
         }
@@ -136,8 +143,10 @@ public class QuoteService
             throw new DomainValidationException("q must be at most " + MAX_SEARCH_LENGTH + " characters");
         }
 
-        List<PolicyQuote> content = quoteRepository.findPage(searchTerm, (long) page * size, size);
-        return new QuotePage(content, page, size, quoteRepository.count(searchTerm));
+        CoverageType typeFilter = coverageType == null ? null : CoverageType.fromCode(coverageType);
+
+        List<PolicyQuote> content = quoteRepository.findPage(searchTerm, typeFilter, (long) page * size, size);
+        return new QuotePage(content, page, size, quoteRepository.count(searchTerm, typeFilter));
     }
 
     private PolicyQuote createQuote(
@@ -147,7 +156,8 @@ public class QuoteService
         CoverageType coverageType,
         int age,
         BigDecimal coverageAmount,
-        PolicyDetails details
+        PolicyDetails details,
+        Map<String, Object> typeDetails
     ) {
         if (age < 18 || age > 75) {
             throw new DomainValidationException("age must be between 18 and 75");
@@ -178,9 +188,14 @@ public class QuoteService
             taxRate,
             taxAmount,
             Instant.now(clock).truncatedTo(ChronoUnit.MICROS),
-            details.createdBy()
+            details.createdBy(),
+            typeDetails
         );
         return quoteRepository.save(quote);
+    }
+
+    private int currentYear() {
+        return LocalDate.now(clock.withZone(ZoneOffset.UTC)).getYear();
     }
 
     private PolicyDetails resolveDetails(

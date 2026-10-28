@@ -3,6 +3,7 @@ package com.insureai.insurance.adapter.inbound.web;
 import static com.insureai.insurance.QuoteFixtures.quote;
 import static com.insureai.insurance.QuoteFixtures.withCreatedAt;
 import static com.insureai.insurance.QuoteFixtures.withCreatedBy;
+import static com.insureai.insurance.QuoteFixtures.withTypeDetails;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.verify;
@@ -18,7 +19,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -73,7 +76,7 @@ class InsuranceQuoteControllerTest {
     @Test
     void listQuotesUsesDefaultPagingAndReturnsPageMetadata() throws Exception {
         PolicyQuote quote = quote("quote-1", "Alice Smith", CoverageType.AUTO, 35, "250000", "17500.00", null, "QT-000012", "CUS-000003");
-        when(listQuotesUseCase.listQuotes(0, 20, null)).thenReturn(new QuotePage(List.of(quote), 0, 20, 1));
+        when(listQuotesUseCase.listQuotes(0, 20, null, null)).thenReturn(new QuotePage(List.of(quote), 0, 20, 1));
 
         mockMvc.perform(get("/api/v1/quotes")
                 .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:read"))))
@@ -86,12 +89,12 @@ class InsuranceQuoteControllerTest {
             .andExpect(jsonPath("$.size").value(20))
             .andExpect(jsonPath("$.totalElements").value(1))
             .andExpect(jsonPath("$.totalPages").value(1));
-        verify(listQuotesUseCase).listQuotes(0, 20, null);
+        verify(listQuotesUseCase).listQuotes(0, 20, null, null);
     }
 
     @Test
     void listQuotesPassesRequestedPageAndSize() throws Exception {
-        when(listQuotesUseCase.listQuotes(2, 5, null)).thenReturn(new QuotePage(List.of(), 2, 5, 11));
+        when(listQuotesUseCase.listQuotes(2, 5, null, null)).thenReturn(new QuotePage(List.of(), 2, 5, 11));
 
         mockMvc.perform(get("/api/v1/quotes")
                 .param("page", "2")
@@ -104,20 +107,20 @@ class InsuranceQuoteControllerTest {
 
     @Test
     void listQuotesPassesSearchTermToUseCase() throws Exception {
-        when(listQuotesUseCase.listQuotes(0, 20, "alice")).thenReturn(new QuotePage(List.of(), 0, 20, 0));
+        when(listQuotesUseCase.listQuotes(0, 20, "alice", null)).thenReturn(new QuotePage(List.of(), 0, 20, 0));
 
         mockMvc.perform(get("/api/v1/quotes")
                 .param("q", "alice")
                 .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:read"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.totalElements").value(0));
-        verify(listQuotesUseCase).listQuotes(0, 20, "alice");
+        verify(listQuotesUseCase).listQuotes(0, 20, "alice", null);
     }
 
     @Test
     void listQuotesReturnsProblemDetailForTooLongSearchTerm() throws Exception {
         String tooLong = "x".repeat(81);
-        when(listQuotesUseCase.listQuotes(0, 20, tooLong))
+        when(listQuotesUseCase.listQuotes(0, 20, tooLong, null))
             .thenThrow(new DomainValidationException("q must be at most 80 characters"));
 
         mockMvc.perform(get("/api/v1/quotes")
@@ -132,7 +135,7 @@ class InsuranceQuoteControllerTest {
 
     @Test
     void listQuotesReturnsProblemDetailForInvalidPaging() throws Exception {
-        when(listQuotesUseCase.listQuotes(0, 1000, null))
+        when(listQuotesUseCase.listQuotes(0, 1000, null, null))
             .thenThrow(new DomainValidationException("size must be between 1 and 100"));
 
         mockMvc.perform(get("/api/v1/quotes")
@@ -503,7 +506,7 @@ class InsuranceQuoteControllerTest {
     @Test
     void listItemsCarryPolicyDetails() throws Exception {
         PolicyQuote monthly = quote("quote-1", "Alice Smith", CoverageType.HOME, 35, "250000", "12500.00");
-        when(listQuotesUseCase.listQuotes(0, 20, null)).thenReturn(new QuotePage(List.of(monthly), 0, 20, 1));
+        when(listQuotesUseCase.listQuotes(0, 20, null, null)).thenReturn(new QuotePage(List.of(monthly), 0, 20, 1));
 
         mockMvc.perform(get("/api/v1/quotes")
                 .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:read"))))
@@ -520,6 +523,142 @@ class InsuranceQuoteControllerTest {
             .andExpect(jsonPath("$.content[0].installmentAmount").value(14750.00))
             .andExpect(jsonPath("$.content[0].createdAt").value("2026-10-26T10:15:30.123456Z"))
             .andExpect(jsonPath("$.content[0].createdBy").value((Object) null));
+    }
+
+    private static final String HEALTH_DETAILS =
+        "{\"members\":4,\"preExistingConditions\":false,\"smoker\":true,\"planTier\":\"STANDARD\"}";
+
+    @Test
+    void createQuoteAcceptsDetailsPassesThemToUseCaseAndReturnsThem() throws Exception {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("members", 4);
+        details.put("preExistingConditions", false);
+        details.put("smoker", true);
+        details.put("planTier", "STANDARD");
+        when(createQuoteUseCase.createQuote(org.mockito.ArgumentMatchers.any())).thenReturn(withTypeDetails(
+            quote("quote-1", "Alice Smith", CoverageType.HEALTH, 35, "250000", "20000.00"), details));
+
+        mockMvc.perform(post("/api/v1/quotes")
+                .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:create")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"customerName\":\"Alice Smith\",\"coverageType\":\"HEALTH\",\"age\":35,"
+                    + "\"coverageAmount\":250000,\"details\":" + HEALTH_DETAILS + "}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.details.members").value(4))
+            .andExpect(jsonPath("$.details.preExistingConditions").value(false))
+            .andExpect(jsonPath("$.details.smoker").value(true))
+            .andExpect(jsonPath("$.details.planTier").value("STANDARD"));
+
+        assertEquals(details, captureCommand().details());
+    }
+
+    @Test
+    void createQuoteWithoutDetailsPassesNullAndReturnsNullDetails() throws Exception {
+        when(createQuoteUseCase.createQuote(org.mockito.ArgumentMatchers.any()))
+            .thenReturn(quote("quote-1", "Alice Smith", CoverageType.AUTO, 35, "250000", "17500.00"));
+
+        mockMvc.perform(post("/api/v1/quotes")
+                .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:create")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{" + BASE_REQUEST + "}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.details").value((Object) null));
+
+        assertNull(captureCommand().details());
+    }
+
+    @Test
+    void createQuoteWithExplicitNullDetailsIsAccepted() throws Exception {
+        when(createQuoteUseCase.createQuote(org.mockito.ArgumentMatchers.any()))
+            .thenReturn(quote("quote-1", "Alice Smith", CoverageType.AUTO, 35, "250000", "17500.00"));
+
+        mockMvc.perform(post("/api/v1/quotes")
+                .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:create")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{" + BASE_REQUEST + ",\"details\":null}"))
+            .andExpect(status().isCreated());
+
+        assertNull(captureCommand().details());
+    }
+
+    @Test
+    void invalidDetailsAreReportedAsFieldErrorNamedAfterTheDetailsKey() throws Exception {
+        when(createQuoteUseCase.createQuote(org.mockito.ArgumentMatchers.any())).thenThrow(
+            new DomainValidationException("details.vehicleYear must be between 1980 and 2027", "details.vehicleYear"));
+
+        mockMvc.perform(post("/api/v1/quotes")
+                .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:create")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{" + BASE_REQUEST + ",\"details\":{\"vehicleYear\":1900}}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_QUOTE_REQUEST"))
+            .andExpect(jsonPath("$.errors[0].field").value("details.vehicleYear"))
+            .andExpect(jsonPath("$.errors[0].message").value("details.vehicleYear must be between 1980 and 2027"));
+    }
+
+    @Test
+    void detailsThatAreNotAJsonObjectAreRejected() throws Exception {
+        mockMvc.perform(post("/api/v1/quotes")
+                .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:create")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{" + BASE_REQUEST + ",\"details\":\"nope\"}"))
+            .andExpect(status().isBadRequest());
+        verifyNoInteractions(createQuoteUseCase);
+    }
+
+    @Test
+    void getQuoteReturnsDetailsAndListItemsCarryThem() throws Exception {
+        Map<String, Object> details = Map.of("propertyType", "VILLA", "builtYear", 2015, "areaSqFt", 2400,
+            "ownership", "OWNED", "city", "Pune");
+        PolicyQuote home = withTypeDetails(
+            quote("quote-1", "Alice Smith", CoverageType.HOME, 35, "250000", "12500.00"), details);
+        PolicyQuote plain = quote("quote-2", "Bob Jones", CoverageType.AUTO, 35, "250000", "17500.00");
+        when(getQuoteUseCase.getQuoteById("quote-1")).thenReturn(home);
+        when(getQuoteUseCase.getQuoteById("quote-2")).thenReturn(plain);
+        when(listQuotesUseCase.listQuotes(0, 20, null, null)).thenReturn(new QuotePage(List.of(home, plain), 0, 20, 2));
+
+        mockMvc.perform(get("/api/v1/quotes/quote-1")
+                .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:read"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.details.propertyType").value("VILLA"))
+            .andExpect(jsonPath("$.details.builtYear").value(2015))
+            .andExpect(jsonPath("$.details.areaSqFt").value(2400));
+        mockMvc.perform(get("/api/v1/quotes/quote-2")
+                .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:read"))))
+            .andExpect(jsonPath("$.details").value((Object) null));
+        mockMvc.perform(get("/api/v1/quotes")
+                .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:read"))))
+            .andExpect(jsonPath("$.content[0].details.city").value("Pune"))
+            .andExpect(jsonPath("$.content[1].details").value((Object) null));
+    }
+
+    @Test
+    void listQuotesPassesCoverageTypeParameterToUseCase() throws Exception {
+        when(listQuotesUseCase.listQuotes(1, 5, "alice", "home")).thenReturn(new QuotePage(List.of(), 1, 5, 7));
+
+        mockMvc.perform(get("/api/v1/quotes")
+                .param("page", "1")
+                .param("size", "5")
+                .param("q", "alice")
+                .param("coverageType", "home")
+                .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:read"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(7))
+            .andExpect(jsonPath("$.totalPages").value(2));
+        verify(listQuotesUseCase).listQuotes(1, 5, "alice", "home");
+    }
+
+    @Test
+    void listQuotesReturnsProblemDetailForInvalidCoverageType() throws Exception {
+        when(listQuotesUseCase.listQuotes(0, 20, null, "BOAT"))
+            .thenThrow(new DomainValidationException("coverageType must be one of AUTO, HOME, LIFE, HEALTH"));
+
+        mockMvc.perform(get("/api/v1/quotes")
+                .param("coverageType", "BOAT")
+                .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:read"))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_QUOTE_REQUEST"))
+            .andExpect(jsonPath("$.detail").value("coverageType must be one of AUTO, HOME, LIFE, HEALTH"));
     }
 
     private CreateQuoteCommand captureCommand() {

@@ -5,11 +5,13 @@ import { Link, useParams } from 'react-router-dom'
 
 import { getQuote } from '../../api/quotes'
 import type { QuoteSummary } from '../../api/schemas'
+import { coverageStyle } from '../shared/coverage'
 import { CoverageBadge } from '../shared/CoverageBadge'
 import { DetailRow } from '../shared/DetailRow'
 import { PageHeader } from '../shared/PageHeader'
 import { RefLabel } from '../shared/RefLabel'
 import { describeError } from '../shared/errors'
+import { describeDetails } from '../portal/typeFields'
 import { formatMoney } from './format'
 
 const FREQUENCY_LABEL: Record<string, string> = {
@@ -112,6 +114,12 @@ export function QuoteDetailPage() {
           {quote.deductible != null && <DetailRow label="Deductible" value={formatMoney(quote.deductible)} />}
         </Section>
         <Premium quote={quote} />
+        <Section title={`${coverageStyle(quote.coverageType).label} details`}>
+          {describeDetails(quote.coverageType, quote.details).map((row) => (
+            <DetailRow key={row.label} label={row.label} value={row.value} />
+          ))}
+          {describeDetails(quote.coverageType, quote.details).length === 0 && <Text c="dimmed">Not recorded</Text>}
+        </Section>
         {hasTerms && (
           <Section title="Policy terms">
             <DetailRow

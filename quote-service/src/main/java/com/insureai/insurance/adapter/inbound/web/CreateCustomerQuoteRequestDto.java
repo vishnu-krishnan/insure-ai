@@ -2,6 +2,7 @@ package com.insureai.insurance.adapter.inbound.web;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Map;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -42,11 +43,13 @@ public record CreateCustomerQuoteRequestDto(
     @Digits(integer = 12, fraction = 2, message = "deductible must have at most 12 integer digits and 2 decimals")
     BigDecimal deductible,
 
-    LocalDate startDate
+    LocalDate startDate,
+
+    Map<String, Object> details
 ) {
     public CreateCustomerQuoteCommand toCommand(String createdBy) {
         return new CreateCustomerQuoteCommand(
             customerId, coverageType.trim(), coverageAmount,
-            policyTermYears, paymentFrequency, deductible, startDate, createdBy);
+            policyTermYears, paymentFrequency, deductible, startDate, createdBy, details);
     }
 }

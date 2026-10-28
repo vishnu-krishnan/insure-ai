@@ -8,6 +8,10 @@ import com.insureai.customer.domain.model.CustomerProfile;
 public interface CustomerRepositoryPort {
     CustomerProfile save(CustomerProfile customer);
 
+    boolean existsByEmail(String email);
+
+    boolean existsByPhone(String phone);
+
     Optional<CustomerProfile> findById(String customerId);
 
     List<CustomerProfile> search(String text, long offset, int limit);
