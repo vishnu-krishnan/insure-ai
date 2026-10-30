@@ -131,8 +131,8 @@ class CustomerDetailsMigrationTest {
     }
 
     private static void insert(Statement statement, String columns, String values) throws SQLException {
-        statement.executeUpdate("INSERT INTO customer_profile (customer_id, full_name, email, phone, date_of_birth, "
-            + columns + ") VALUES ('" + UUID.randomUUID() + "', 'Detail Tester', '" + UUID.randomUUID()
+        statement.executeUpdate("INSERT INTO customer_profile (full_name, email, phone, date_of_birth, "
+            + columns + ") VALUES ('Detail Tester', '" + UUID.randomUUID()
             + "@example.test', '+1415" + (5550000 + PHONE_SEQUENCE.incrementAndGet()) + "', '1990-01-01', " + values + ")");
     }
 

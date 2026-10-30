@@ -8,8 +8,8 @@
 # Reads KEYCLOAK_ISSUER_URI, KEYCLOAK_ADMIN_USERNAME, KEYCLOAK_ADMIN_PASSWORD,
 # QUOTE_JWT_AUDIENCE and CUSTOMER_JWT_AUDIENCE from the environment, falling back
 # to the repository .env. Optional: UI_CLIENT_ID (insure-ui), UI_ORIGIN
-# (http://localhost:3174), AGENT_USERNAME (agent1), AGENT_PASSWORD (generated and
-# printed once when the user is created).
+# (http://localhost:3174), BACKEND_CLIENT_ID (insure-backend), AGENT_USERNAME (agent1),
+# AGENT_PASSWORD (generated and printed once when the user is created).
 set -euo pipefail
 
 DRY_RUN=0
@@ -33,6 +33,7 @@ QUOTE_AUDIENCE="$(env_value QUOTE_JWT_AUDIENCE)"
 CUSTOMER_AUDIENCE="$(env_value CUSTOMER_JWT_AUDIENCE)"
 UI_CLIENT_ID="${UI_CLIENT_ID:-insure-ui}"
 UI_ORIGIN="${UI_ORIGIN:-http://localhost:3174}"
+BACKEND_CLIENT_ID="${BACKEND_CLIENT_ID:-insure-backend}"
 AGENT_USERNAME="${AGENT_USERNAME:-agent1}"
 
 for name in ISSUER ADMIN_USER ADMIN_PASSWORD QUOTE_AUDIENCE CUSTOMER_AUDIENCE; do
@@ -142,6 +143,49 @@ if [ -n "$CLIENT_UUID" ]; then
             say "exists: audience mapper $name"
         else
             mutate "add audience mapper $name" kc POST "/clients/$CLIENT_UUID/protocol-mappers/models" -d "$(jq -n --arg n "$name" --arg a "$audience" '{
+                name:$n, protocol:"openid-connect", protocolMapper:"oidc-audience-mapper",
+                config:{"included.custom.audience":$a,"access.token.claim":"true","id.token.claim":"false","introspection.token.claim":"true"}}')"
+        fi
+    done
+fi
+
+# --- backend client (service account for service-to-service calls and API testing) ---
+# Scopes are optional, so a token carries only the scopes its caller requests.
+BACKEND_JSON="$(jq -n --arg id "$BACKEND_CLIENT_ID" '{
+    clientId:$id, name:"Insure AI backend", protocol:"openid-connect", enabled:true,
+    publicClient:false, serviceAccountsEnabled:true, standardFlowEnabled:false,
+    directAccessGrantsEnabled:false, implicitFlowEnabled:false}')"
+BACKEND_UUID="$(kc GET "/clients?clientId=$BACKEND_CLIENT_ID" | jq -r '.[0].id // empty')"
+if [ -n "$BACKEND_UUID" ]; then
+    say "exists: client $BACKEND_CLIENT_ID"
+else
+    mutate "create confidential service-account client $BACKEND_CLIENT_ID" kc POST /clients -d "$BACKEND_JSON"
+    BACKEND_UUID="$(kc GET "/clients?clientId=$BACKEND_CLIENT_ID" | jq -r '.[0].id // empty')"
+    if [ "$DRY_RUN" = 0 ] && [ -n "$BACKEND_UUID" ]; then
+        say "secret for $BACKEND_CLIENT_ID (Clients > $BACKEND_CLIENT_ID > Credentials): $(kc GET "/clients/$BACKEND_UUID/client-secret" | jq -r .value)"
+    fi
+fi
+
+if [ -n "$BACKEND_UUID" ]; then
+    # optional client scopes
+    OPTIONAL="$(kc GET "/clients/$BACKEND_UUID/optional-client-scopes" | jq -r '.[].name')"
+    for scope in "${SCOPES[@]}"; do
+        if printf '%s\n' "$OPTIONAL" | grep -qx "$scope"; then
+            say "exists: $scope optional on $BACKEND_CLIENT_ID"
+        else
+            SCOPE_ID="$(kc GET /client-scopes | jq -r --arg n "$scope" '.[]|select(.name==$n)|.id')"
+            mutate "assign optional scope $scope to $BACKEND_CLIENT_ID" kc PUT "/clients/$BACKEND_UUID/optional-client-scopes/$SCOPE_ID"
+        fi
+    done
+
+    # audience mappers
+    MAPPERS="$(kc GET "/clients/$BACKEND_UUID" | jq -r '.protocolMappers[]?.name')"
+    for audience in "$QUOTE_AUDIENCE" "$CUSTOMER_AUDIENCE"; do
+        name="audience-$audience"
+        if printf '%s\n' "$MAPPERS" | grep -qx "$name"; then
+            say "exists: audience mapper $name on $BACKEND_CLIENT_ID"
+        else
+            mutate "add audience mapper $name to $BACKEND_CLIENT_ID" kc POST "/clients/$BACKEND_UUID/protocol-mappers/models" -d "$(jq -n --arg n "$name" --arg a "$audience" '{
                 name:$n, protocol:"openid-connect", protocolMapper:"oidc-audience-mapper",
                 config:{"included.custom.audience":$a,"access.token.claim":"true","id.token.claim":"false","introspection.token.claim":"true"}}')"
         fi

@@ -69,8 +69,8 @@ class CustomerContactUniquenessMigrationTest {
     }
 
     private static void insert(Statement statement, String email, String phone) throws SQLException {
-        statement.executeUpdate("INSERT INTO customer_profile (customer_id, full_name, email, phone, date_of_birth) VALUES ('"
-            + java.util.UUID.randomUUID() + "', 'Unique Tester', '" + email + "', '" + phone + "', '1990-01-01')");
+        statement.executeUpdate("INSERT INTO customer_profile (full_name, email, phone, date_of_birth) VALUES ("
+            + "'Unique Tester', '" + email + "', '" + phone + "', '1990-01-01')");
     }
 
     private static Connection connection() throws SQLException {

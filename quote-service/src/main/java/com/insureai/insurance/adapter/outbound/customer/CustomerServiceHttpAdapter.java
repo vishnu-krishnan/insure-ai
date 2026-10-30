@@ -3,6 +3,8 @@ package com.insureai.insurance.adapter.outbound.customer;
 import java.net.SocketTimeoutException;
 import java.util.Objects;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.security.oauth2.core.OAuth2AuthorizationException;
 import org.springframework.web.client.HttpClientErrorException;
@@ -16,6 +18,7 @@ import com.insureai.insurance.domain.exception.CustomerServiceTimeoutException;
 import com.insureai.insurance.domain.exception.CustomerServiceUnavailableException;
 
 public class CustomerServiceHttpAdapter implements CustomerProfileLookupPort {
+    private static final Logger LOGGER = LoggerFactory.getLogger(CustomerServiceHttpAdapter.class);
     private final RestClient restClient;
 
     public CustomerServiceHttpAdapter(RestClient restClient) {
@@ -75,17 +78,24 @@ public class CustomerServiceHttpAdapter implements CustomerProfileLookupPort {
                 if (attempt == 1) {
                     throw exception;
                 }
+                LOGGER.warn("Customer Service lookup timed out; retrying (customerId={}).", customerId);
             } catch (CustomerServiceUnavailableException exception) {
                 if (!exception.retryable() || attempt == 1) {
                     throw exception;
                 }
+                LOGGER.warn("Customer Service lookup failed ({}); retrying (customerId={}).", exception.getMessage(), customerId);
             } catch (HttpClientErrorException exception) {
+                LOGGER.warn(
+                    "Customer Service rejected the lookup with status {} (customerId={}).",
+                    exception.getStatusCode().value(), customerId
+                );
                 throw new CustomerServiceUnavailableException(
                     "Customer Service rejected the service request",
                     exception,
                     false
                 );
             } catch (OAuth2AuthorizationException exception) {
+                LOGGER.error("Could not obtain a Customer Service access token ({}).", exception.getError().getErrorCode());
                 throw new CustomerServiceUnavailableException(
                     "Could not obtain Customer Service access token",
                     exception,
@@ -98,6 +108,7 @@ public class CustomerServiceHttpAdapter implements CustomerProfileLookupPort {
                     }
                     throw new CustomerServiceUnavailableException("Customer Service is unavailable", exception, true);
                 }
+                LOGGER.warn("Customer Service unreachable; retrying (customerId={}).", customerId);
             }
         }
 

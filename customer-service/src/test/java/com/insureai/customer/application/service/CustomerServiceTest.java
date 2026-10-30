@@ -46,7 +46,7 @@ class CustomerServiceTest {
         when(customerRepository.save(any())).thenAnswer(invocation -> {
             CustomerProfile unsaved = invocation.getArgument(0);
             return new CustomerProfile(
-                unsaved.customerId(), "CUS-000007", unsaved.fullName(), unsaved.email(), unsaved.phone(), unsaved.dateOfBirth(),
+                "10000007", "CUS-000007", unsaved.fullName(), unsaved.email(), unsaved.phone(), unsaved.dateOfBirth(),
                 unsaved.gender(), unsaved.maritalStatus(), unsaved.occupation(), unsaved.annualIncome(),
                 unsaved.address(), unsaved.nominee(), Instant.parse("2026-01-01T00:00:00Z"), Instant.parse("2026-01-01T00:00:00Z")
             );
@@ -63,7 +63,8 @@ class CustomerServiceTest {
         assertEquals("Alice Smith", customer.fullName());
         assertEquals("alice@example.test", customer.email());
         assertEquals("CUS-000007", customer.customerNumber());
-        verify(customerRepository).save(argThat(saved -> saved.customerId().equals(customer.customerId())));
+        assertEquals("10000007", customer.customerId());
+        verify(customerRepository).save(argThat(saved -> saved.customerId() == null));
     }
 
     @Test
@@ -169,9 +170,9 @@ class CustomerServiceTest {
     }
 
     @Test
-    void returnsCustomerByCanonicalUuid() {
+    void returnsCustomerByNumericId() {
         CustomerProfile customer = new CustomerProfile(
-            "3b241101-e2bb-4255-8caf-4136c566a962",
+            "10000001",
             "CUS-000001",
             "Alice Smith",
             "alice@example.test",
@@ -181,23 +182,34 @@ class CustomerServiceTest {
         );
         when(customerRepository.findById(customer.customerId())).thenReturn(Optional.of(customer));
 
-        assertEquals(customer, customerService.getCustomerById(customer.customerId().toUpperCase()));
+        assertEquals(customer, customerService.getCustomerById(customer.customerId()));
+    }
+
+    @Test
+    void rejectsCustomerIdThatIsNotNumeric() {
+        for (String invalid : new String[] {"3b241101-e2bb-4255-8caf-4136c566a962", "abc12345", "1234567", "10000001x", " 10000001"}) {
+            assertThrows(
+                CustomerValidationException.class,
+                () -> customerService.getCustomerById(invalid),
+                invalid
+            );
+        }
     }
 
     @Test
     void reportsUnknownCustomer() {
-        when(customerRepository.findById("3b241101-e2bb-4255-8caf-4136c566a962")).thenReturn(Optional.empty());
+        when(customerRepository.findById("10000001")).thenReturn(Optional.empty());
 
         assertThrows(
             CustomerNotFoundException.class,
-            () -> customerService.getCustomerById("3b241101-e2bb-4255-8caf-4136c566a962")
+            () -> customerService.getCustomerById("10000001")
         );
     }
 
     @Test
     void searchesWithTrimmedTextAndComputedOffset() {
         CustomerProfile customer = new CustomerProfile(
-            "3b241101-e2bb-4255-8caf-4136c566a962",
+            "10000001",
             "CUS-000001",
             "Alice Smith",
             "alice@example.test",

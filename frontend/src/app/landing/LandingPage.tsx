@@ -29,6 +29,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../auth/useAuth'
 import { Reveal } from '../Reveal'
 import { AutoArt, HealthArt, HeroScene, HomeArt, LifeArt } from './Art'
+import { CoverPhoto } from '../../features/shared/CoverPhoto'
 import { PhotoSlot } from './PhotoSlot'
 
 const covers: {
@@ -198,10 +199,10 @@ export function LandingPage() {
                 ))}
               </Group>
             </Stack>
-            <Box visibleFrom="md" style={{ flexShrink: 0, position: 'relative' }}>
+            <Box visibleFrom="md" w={480} style={{ flexShrink: 0, position: 'relative' }}>
               <PhotoSlot
                 src="/images/hero-family.jpg"
-                alt="A family at home"
+                alt="A family playing with bubbles in a park"
                 height={400}
                 radius="var(--mantine-radius-xl)"
                 fallback={
@@ -214,7 +215,13 @@ export function LandingPage() {
                 className="glass float-slow"
                 gap="xs"
                 p="sm"
-                style={{ position: 'absolute', left: -28, bottom: 36, borderRadius: 14 }}
+                style={{
+                  position: 'absolute',
+                  left: -28,
+                  bottom: 36,
+                  borderRadius: 14,
+                  background: 'rgba(10, 28, 72, 0.88)',
+                }}
               >
                 <ThemeIcon radius="xl" color="teal" variant="filled" size={30}>
                   <IconCheck size={16} stroke={3} />
@@ -337,6 +344,50 @@ export function LandingPage() {
             </Reveal>
           ))}
         </SimpleGrid>
+        <Box mt="xl">
+          <CoverPhoto
+            src="/images/agent-handshake.jpg"
+            alt="An agent greeting an older couple at a desk"
+            height={320}
+            position="center 40%"
+            radius="var(--mantine-radius-xl)"
+          />
+        </Box>
+      </Section>
+
+      <Section>
+        <SimpleGrid cols={{ base: 1, md: 2 }} spacing={48} style={{ alignItems: 'center' }}>
+          <CoverPhoto
+            src="/images/customer-keys.jpg"
+            alt="A couple holding the keys to their home"
+            height={380}
+            position="center 30%"
+            radius="var(--mantine-radius-xl)"
+          />
+          <Stack gap="md">
+            <Badge variant="light" size="lg" w="fit-content">
+              At the desk
+            </Badge>
+            <Title order={2} fz={{ base: 26, sm: 34 }}>
+              A clear answer while the customer is still in the room
+            </Title>
+            <Text c="dimmed">
+              Everything about a customer sits on one screen, with their quotes grouped by type of cover.
+            </Text>
+            <List
+              spacing={8}
+              icon={
+                <ThemeIcon size={22} radius="xl" color="teal" variant="light">
+                  <IconCheck size={13} stroke={3} />
+                </ThemeIcon>
+              }
+            >
+              <List.Item>Monthly and annual premium shown together, with tax</List.Item>
+              <List.Item>Every quote kept against the customer it was made for</List.Item>
+              <List.Item>Find anyone by name, ID, email or phone</List.Item>
+            </List>
+          </Stack>
+        </SimpleGrid>
       </Section>
 
       <Section id="faq" tint>
@@ -357,37 +408,45 @@ export function LandingPage() {
 
       <Section>
         <Box
-          p={{ base: 'xl', sm: 56 }}
-          ta="center"
           style={{
             borderRadius: 'var(--mantine-radius-xl)',
             color: 'white',
+            overflow: 'hidden',
             background: 'linear-gradient(135deg, #0f275f, #2557d6)',
           }}
         >
-          <Stack align="center" gap="md">
-            <Title order={2} c="white" fz={{ base: 26, sm: 36 }}>
-              Ready to create your first quote?
-            </Title>
-            <Text c="white" opacity={0.9} maw={520}>
-              Sign in to register a customer and price their cover, or work through the numbers first.
-            </Text>
-            <Group justify="center">
-              <Button size="lg" color="white" c="brand.9" onClick={() => void signIn('/')}>
-                Agent sign in
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                color="white"
-                component={Link}
-                to="/calculator"
-                leftSection={<IconCalculator size={18} />}
-              >
-                Open the calculator
-              </Button>
-            </Group>
-          </Stack>
+          <SimpleGrid cols={{ base: 1, md: 2 }} spacing={0}>
+            <Stack gap="md" p={{ base: 'xl', sm: 56 }} justify="center">
+              <Title order={2} c="white" fz={{ base: 26, sm: 36 }}>
+                Ready to create your first quote?
+              </Title>
+              <Text c="white" opacity={0.9} maw={520}>
+                Sign in to register a customer and price their cover, or work through the numbers first.
+              </Text>
+              <Group>
+                <Button size="lg" color="white" c="brand.9" onClick={() => void signIn('/')}>
+                  Agent sign in
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  color="white"
+                  component={Link}
+                  to="/calculator"
+                  leftSection={<IconCalculator size={18} />}
+                >
+                  Open the calculator
+                </Button>
+              </Group>
+            </Stack>
+            <Box visibleFrom="md" mih={300}>
+              <CoverPhoto
+                src="/images/agent-team.jpg"
+                alt="An agent and two customers giving a thumbs up"
+                height="100%"
+              />
+            </Box>
+          </SimpleGrid>
         </Box>
       </Section>
     </>

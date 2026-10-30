@@ -8,7 +8,7 @@ import { server } from '../../test/server'
 import { Component } from './routes'
 
 const base = '/agent/quotes'
-const customerId = '3f1c6a52-6c0e-4e42-9a77-0b4f0d6c3f10'
+const customerId = '10000001'
 const customer = {
   customerId,
   customerNumber: 'CUS-000001',

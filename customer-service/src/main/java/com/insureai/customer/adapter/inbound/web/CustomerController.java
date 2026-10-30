@@ -82,7 +82,7 @@ public class CustomerController {
 
     @GetMapping("/{customerId}")
     @Operation(summary = "Get a customer profile by ID", description = "Required scope: customer:read.")
-    @ApiResponse(responseCode = "400", description = "customerId is not a valid UUID",
+    @ApiResponse(responseCode = "400", description = "customerId is not a valid numeric ID",
         content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
     @ApiResponse(responseCode = "404", description = "Customer not found",
         content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))

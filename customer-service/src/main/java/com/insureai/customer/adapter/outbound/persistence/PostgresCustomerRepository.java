@@ -26,13 +26,13 @@ import com.insureai.customer.domain.model.Nominee;
 public class PostgresCustomerRepository implements CustomerRepositoryPort {
     private static final String INSERT_CUSTOMER = """
         INSERT INTO customer_profile (
-            customer_id, full_name, email, phone, date_of_birth,
+            full_name, email, phone, date_of_birth,
             gender, marital_status, occupation, annual_income,
             address_line1, address_line2, address_city, address_state, address_postal_code, address_country,
             nominee_name, nominee_relationship
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        RETURNING customer_number, annual_income, created_at, updated_at
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        RETURNING customer_id, customer_number, annual_income, created_at, updated_at
         """;
     private static final String EMAIL_EXISTS = "SELECT EXISTS (SELECT 1 FROM customer_profile WHERE lower(email) = lower(?))";
     private static final String PHONE_EXISTS = "SELECT EXISTS (SELECT 1 FROM customer_profile WHERE phone = ?)";
@@ -105,7 +105,7 @@ public class PostgresCustomerRepository implements CustomerRepositoryPort {
         return jdbcTemplate.queryForObject(
             INSERT_CUSTOMER,
             (resultSet, rowNumber) -> new CustomerProfile(
-                customer.customerId(),
+                resultSet.getString("customer_id"),
                 resultSet.getString("customer_number"),
                 customer.fullName(),
                 customer.email(),
@@ -120,7 +120,6 @@ public class PostgresCustomerRepository implements CustomerRepositoryPort {
                 instant(resultSet, "created_at"),
                 instant(resultSet, "updated_at")
             ),
-            customer.customerId(),
             customer.fullName(),
             customer.email(),
             customer.phone(),

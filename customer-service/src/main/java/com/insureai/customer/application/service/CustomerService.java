@@ -3,9 +3,10 @@ package com.insureai.customer.application.service;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.List;
-import java.util.UUID;
 import java.util.regex.Pattern;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,10 +23,12 @@ import com.insureai.customer.domain.model.CustomerProfile;
 
 @Service
 public class CustomerService implements CreateCustomerUseCase, GetCustomerUseCase, SearchCustomersUseCase {
+    private static final Logger LOGGER = LoggerFactory.getLogger(CustomerService.class);
     private static final int MAX_SEARCH_TEXT_LENGTH = 80;
     private static final int MAX_PAGE_SIZE = 100;
     private static final int MIN_AGE = 18;
     private static final int MAX_AGE = 75;
+    private static final Pattern CUSTOMER_ID_PATTERN = Pattern.compile("^[0-9]{8,19}$");
     private static final Pattern FULL_NAME_PATTERN = Pattern.compile("^\\p{L}[\\p{L}\\p{M} .'-]*$");
 
     private final CustomerRepositoryPort customerRepository;
@@ -71,21 +74,20 @@ public class CustomerService implements CreateCustomerUseCase, GetCustomerUseCas
         if (customerRepository.existsByPhone(customer.phone())) {
             throw new DuplicateCustomerException("phone");
         }
-        return customerRepository.save(customer);
+        CustomerProfile saved = customerRepository.save(customer);
+        LOGGER.info("Customer created: customerId={} customerNumber={}", saved.customerId(), saved.customerNumber());
+        return saved;
     }
 
     @Override
     @Transactional(readOnly = true)
     public CustomerProfile getCustomerById(String customerId) {
-        String canonicalId;
-        try {
-            canonicalId = UUID.fromString(customerId).toString();
-        } catch (IllegalArgumentException | NullPointerException exception) {
-            throw new CustomerValidationException("customerId must be a valid UUID");
+        if (customerId == null || !CUSTOMER_ID_PATTERN.matcher(customerId).matches()) {
+            throw new CustomerValidationException("customerId must be a numeric ID of 8 to 19 digits");
         }
 
-        return customerRepository.findById(canonicalId)
-            .orElseThrow(() -> new CustomerNotFoundException(canonicalId));
+        return customerRepository.findById(customerId)
+            .orElseThrow(() -> new CustomerNotFoundException(customerId));
     }
 
     @Override

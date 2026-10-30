@@ -31,7 +31,8 @@ import { COVER_GUIDES } from '../../features/insurance/catalogue'
 import { portalPath } from '../../features/portal/paths'
 import { coverageStyle } from '../../features/shared/coverage'
 import { PageHeader } from '../../features/shared/PageHeader'
-import { HeroArt } from './HeroArt'
+import { COVER_PHOTOS } from '../../features/insurance/photos'
+import { CoverPhoto } from '../../features/shared/CoverPhoto'
 
 interface Action {
   to: string
@@ -108,11 +109,27 @@ interface ServiceProps {
   loading: boolean
   capabilities: string[]
   actions: Action[]
+  photo: string
+  photoAlt: string
 }
 
-function ServiceCard({ title, description, icon: Glyph, color, stat, loading, capabilities, actions }: ServiceProps) {
+function ServiceCard({
+  title,
+  description,
+  icon: Glyph,
+  color,
+  stat,
+  loading,
+  capabilities,
+  actions,
+  photo,
+  photoAlt,
+}: ServiceProps) {
   return (
     <Card p={{ base: 'md', sm: 'xl' }}>
+      <Card.Section mb="md">
+        <CoverPhoto src={photo} alt={photoAlt} height={130} position="center 35%" />
+      </Card.Section>
       <Stack gap="md">
         <Group justify="space-between" align="flex-start" wrap="nowrap">
           <Group wrap="nowrap" align="flex-start">
@@ -163,6 +180,9 @@ function PortalTile({ code }: { code: string }) {
   return (
     <UnstyledButton component={Link} to={portalPath(code)} aria-label={`${style.label} insurance`}>
       <Card p="md" className="lift" h="100%">
+        <Card.Section mb="md">
+          <CoverPhoto src={COVER_PHOTOS[code].card} alt="" height={96} position={COVER_PHOTOS[code].position} />
+        </Card.Section>
         <Group wrap="nowrap">
           <ThemeIcon size={44} radius="md" variant="light" color={style.color}>
             <style.icon size={24} stroke={1.6} />
@@ -213,8 +233,13 @@ export function Dashboard() {
               a short ID you can search by.
             </Text>
           </Stack>
-          <Box visibleFrom="sm" style={{ flexShrink: 0 }}>
-            <HeroArt size={190} />
+          <Box visibleFrom="md" w={260} style={{ flexShrink: 0 }}>
+            <CoverPhoto
+              src="/images/agent-handshake.jpg"
+              alt="An agent greeting a customer"
+              height={150}
+              radius="14px"
+            />
           </Box>
         </Group>
       </Box>
@@ -244,6 +269,8 @@ export function Dashboard() {
             'Search by name, ID, email or phone',
           ]}
           actions={customerActions}
+          photo="/images/customer-keys.jpg"
+          photoAlt="A couple holding the keys to their home"
         />
         <ServiceCard
           title="Quote service"
@@ -258,6 +285,8 @@ export function Dashboard() {
             'Monthly and annual premium shown together',
           ]}
           actions={quoteActions}
+          photo="/images/customer-laptop.jpg"
+          photoAlt="A couple going through paperwork at a laptop"
         />
       </SimpleGrid>
       <Card p={{ base: 'md', sm: 'lg' }}>

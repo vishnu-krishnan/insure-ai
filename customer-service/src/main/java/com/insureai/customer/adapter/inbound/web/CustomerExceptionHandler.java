@@ -28,6 +28,7 @@ public class CustomerExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(CustomerNotFoundException.class)
     public ResponseEntity<ProblemDetail> handleNotFound(CustomerNotFoundException exception) {
+        LOGGER.info("Customer lookup found nothing: {}", exception.getMessage());
         return ApiProblem.response(
             HttpStatus.NOT_FOUND,
             "Customer not found",
@@ -38,6 +39,7 @@ public class CustomerExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(CustomerValidationException.class)
     public ResponseEntity<ProblemDetail> handleDomainValidation(CustomerValidationException exception) {
+        LOGGER.warn("Customer request rejected: {}", exception.getMessage());
         return ApiProblem.response(
             HttpStatus.BAD_REQUEST,
             "Validation failed",
@@ -48,6 +50,7 @@ public class CustomerExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(DuplicateCustomerException.class)
     public ResponseEntity<ProblemDetail> handleDuplicate(DuplicateCustomerException exception) {
+        LOGGER.warn("Duplicate customer rejected on field {}.", exception.field());
         ProblemDetail problem = ApiProblem.of(
             HttpStatus.CONFLICT,
             "Duplicate customer",
@@ -91,6 +94,7 @@ public class CustomerExceptionHandler extends ResponseEntityExceptionHandler {
             .map(error -> new FieldViolation(error.getField(), error.getDefaultMessage()))
             .toList();
         String detail = violations.isEmpty() ? "Request validation failed" : violations.get(0).message();
+        LOGGER.warn("Customer request validation failed on fields {}.", violations.stream().map(FieldViolation::field).distinct().toList());
 
         ProblemDetail problem = ApiProblem.of(HttpStatus.BAD_REQUEST, "Validation failed", detail, "VALIDATION_FAILED");
         problem.setProperty("errors", violations);

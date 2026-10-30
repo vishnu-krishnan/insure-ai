@@ -24,7 +24,7 @@ import com.insureai.insurance.domain.exception.CustomerReferenceNotFoundExceptio
 import com.insureai.insurance.domain.exception.CustomerServiceUnavailableException;
 
 class CustomerServiceHttpAdapterTest {
-    private static final String CUSTOMER_ID = "3b241101-e2bb-4255-8caf-4136c566a962";
+    private static final String CUSTOMER_ID = "10000001";
 
     private RestClient.Builder builder;
     private MockRestServiceServer server;
@@ -47,7 +47,7 @@ class CustomerServiceHttpAdapterTest {
         server.expect(requestTo("http://customer.test/api/v1/customers/" + CUSTOMER_ID))
             .andExpect(method(HttpMethod.GET))
             .andRespond(withSuccess("""
-                {"customerId":"3b241101-e2bb-4255-8caf-4136c566a962","customerNumber":"CUS-000001",
+                {"customerId":"10000001","customerNumber":"CUS-000001",
                  "fullName":"Alice Smith","email":"alice@example.test","phone":"+14155552671",
                  "dateOfBirth":"1990-01-01","unknownField":"ignored"}
                 """, MediaType.APPLICATION_JSON));
@@ -62,7 +62,7 @@ class CustomerServiceHttpAdapterTest {
     void treatsMissingCustomerNumberAsNull() {
         server.expect(requestTo("http://customer.test/api/v1/customers/" + CUSTOMER_ID))
             .andRespond(withSuccess("""
-                {"customerId":"3b241101-e2bb-4255-8caf-4136c566a962","fullName":"Alice Smith",
+                {"customerId":"10000001","fullName":"Alice Smith",
                  "email":"alice@example.test","phone":"+14155552671","dateOfBirth":"1990-01-01"}
                 """, MediaType.APPLICATION_JSON));
 

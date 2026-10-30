@@ -12,7 +12,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -39,12 +42,14 @@ import com.insureai.insurance.domain.model.QuoteTypeDetails;
 @Service
 public class QuoteService
     implements CreateQuoteUseCase, CreateCustomerQuoteUseCase, GetQuoteUseCase, ListQuotesUseCase {
+    private static final Logger LOGGER = LoggerFactory.getLogger(QuoteService.class);
     public static final int MAX_PAGE_SIZE = 100;
     public static final int MAX_SEARCH_LENGTH = 80;
     public static final int MIN_POLICY_TERM_YEARS = 1;
     public static final int MAX_POLICY_TERM_YEARS = 40;
     public static final int MAX_START_DATE_OFFSET_DAYS = 365;
     private static final int TAX_RATE_SCALE = 4;
+    private static final Pattern CUSTOMER_ID_PATTERN = Pattern.compile("^[0-9]{8,19}$");
 
     private final QuoteRepositoryPort quoteRepository;
     private final CustomerProfileLookupPort customerProfileLookup;
@@ -98,11 +103,9 @@ public class QuoteService
 
         Map<String, Object> typeDetails = QuoteTypeDetails.validate(coverageType, command.details(), currentYear());
 
-        String customerId;
-        try {
-            customerId = UUID.fromString(command.customerId()).toString();
-        } catch (IllegalArgumentException | NullPointerException exception) {
-            throw new DomainValidationException("customerId must be a valid UUID");
+        String customerId = command.customerId();
+        if (customerId == null || !CUSTOMER_ID_PATTERN.matcher(customerId).matches()) {
+            throw new DomainValidationException("customerId must be a numeric ID of 8 to 19 digits");
         }
 
         CustomerProfileSnapshot customer = customerProfileLookup.findCustomer(customerId);
@@ -191,7 +194,12 @@ public class QuoteService
             details.createdBy(),
             typeDetails
         );
-        return quoteRepository.save(quote);
+        PolicyQuote saved = quoteRepository.save(quote);
+        LOGGER.info(
+            "Quote created: quoteNumber={} quoteId={} customerId={} coverageType={} createdBy={}",
+            saved.quoteNumber(), saved.quoteId(), saved.customerId(), saved.coverageType(), saved.createdBy()
+        );
+        return saved;
     }
 
     private int currentYear() {

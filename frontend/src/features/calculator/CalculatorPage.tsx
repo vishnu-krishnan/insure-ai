@@ -14,6 +14,7 @@ import {
 import { IconCalculator } from '@tabler/icons-react'
 import { useState, type ReactNode } from 'react'
 
+import { CoverPhoto } from '../shared/CoverPhoto'
 import { PageHeader } from '../shared/PageHeader'
 import { formatMoney } from '../quotes/format'
 import { compoundInterest, loanSchedule, recurringDeposit, simpleInterest } from './math'
@@ -268,6 +269,13 @@ function DepositTab() {
 export function CalculatorPage() {
   return (
     <Stack>
+      <CoverPhoto
+        src="/images/customer-laptop.jpg"
+        alt="A couple going through paperwork at a laptop"
+        height={200}
+        position="center 22%"
+        radius="var(--mantine-radius-lg)"
+      />
       <PageHeader
         icon={IconCalculator}
         eyebrow="Tools"

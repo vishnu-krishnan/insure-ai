@@ -7,7 +7,9 @@ import { getCustomer } from '../../api/customers'
 import { listQuotes } from '../../api/quotes'
 import type { Customer } from '../../api/schemas'
 import { COVER_GUIDES } from '../insurance/catalogue'
+import { COVER_PHOTOS } from '../insurance/photos'
 import { portalPath } from '../portal/paths'
+import { CoverPhoto } from '../shared/CoverPhoto'
 import { coverageStyle } from '../shared/coverage'
 import { DetailRow } from '../shared/DetailRow'
 import { PageHeader } from '../shared/PageHeader'
@@ -63,6 +65,14 @@ function CustomerQuotes({ customerId, customerNumber }: { customerId: string; cu
             const quotes = query.data.content.filter((quote) => quote.coverageType === guide.code)
             return (
               <Card key={guide.code} withBorder p="md" radius="md" className="lift-soft">
+                <Card.Section mb="sm">
+                  <CoverPhoto
+                    src={COVER_PHOTOS[guide.code].card}
+                    alt=""
+                    height={84}
+                    position={COVER_PHOTOS[guide.code].position}
+                  />
+                </Card.Section>
                 <Stack gap="sm">
                   <Group gap="sm" wrap="nowrap">
                     <ThemeIcon size={36} radius="md" variant="light" color={style.color}>

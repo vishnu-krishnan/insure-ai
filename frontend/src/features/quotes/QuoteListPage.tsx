@@ -9,7 +9,9 @@ import { listQuotes } from '../../api/quotes'
 import { coverageStyle } from '../shared/coverage'
 import { portalPath } from '../portal/paths'
 import { describeDetails } from '../portal/typeFields'
+import { COVER_PHOTOS } from '../insurance/photos'
 import { CoverageBadge } from '../shared/CoverageBadge'
+import { CoverPhoto } from '../shared/CoverPhoto'
 import { MobileCard } from '../shared/MobileCards'
 import { PageHeader } from '../shared/PageHeader'
 import { RefLabel } from '../shared/RefLabel'
@@ -67,25 +69,36 @@ export function QuoteListPage({ type }: { type?: string } = {}) {
   }
 
   const header = (
-    <PageHeader
-      icon={type ? coverageStyle(type).icon : IconFileText}
-      eyebrow={type ? 'Insurance portal' : 'Quote service'}
-      title={type ? `${coverageStyle(type).label} insurance` : 'Quotes'}
-      description={
-        type
-          ? `Every ${coverageStyle(type).label.toLowerCase()} quote, newest first.`
-          : 'Every quote created, newest first.'
-      }
-      actions={
-        <Button
-          component={Link}
-          to={type ? `${portalPath(type)}/new` : '/agent/quotes/new'}
-          leftSection={<IconPlus size={16} />}
-        >
-          New quote
-        </Button>
-      }
-    />
+    <>
+      {type && COVER_PHOTOS[type] && (
+        <CoverPhoto
+          src={COVER_PHOTOS[type].banner}
+          alt={COVER_PHOTOS[type].alt}
+          height={150}
+          position={COVER_PHOTOS[type].position}
+          radius="var(--mantine-radius-lg)"
+        />
+      )}
+      <PageHeader
+        icon={type ? coverageStyle(type).icon : IconFileText}
+        eyebrow={type ? 'Insurance portal' : 'Quote service'}
+        title={type ? `${coverageStyle(type).label} insurance` : 'Quotes'}
+        description={
+          type
+            ? `Every ${coverageStyle(type).label.toLowerCase()} quote, newest first.`
+            : 'Every quote created, newest first.'
+        }
+        actions={
+          <Button
+            component={Link}
+            to={type ? `${portalPath(type)}/new` : '/agent/quotes/new'}
+            leftSection={<IconPlus size={16} />}
+          >
+            New quote
+          </Button>
+        }
+      />
+    </>
   )
   const search = (
     <TextInput

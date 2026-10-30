@@ -69,8 +69,8 @@ class CustomerNumberMigrationTest {
             }
 
             statement.executeUpdate("""
-                INSERT INTO customer_profile (customer_id, full_name, email, phone, date_of_birth)
-                VALUES ('dddddddd-0000-4000-8000-000000000004', 'Dan Fourth', 'dan@example.test', '+14155550104', '1990-01-01')
+                INSERT INTO customer_profile (full_name, email, phone, date_of_birth)
+                VALUES ('Dan Fourth', 'dan@example.test', '+14155550104', '1990-01-01')
                 """);
             try (ResultSet row = statement.executeQuery(
                 "SELECT customer_number FROM customer_profile WHERE full_name = 'Dan Fourth'")) {
@@ -103,8 +103,8 @@ class CustomerNumberMigrationTest {
             statement.execute("SELECT setval('customer_number_seq', 999999)");
             Set<String> numbers = new HashSet<>();
             for (int i = 1; i <= 2; i++) {
-                statement.executeUpdate("INSERT INTO customer_profile (customer_id, full_name, email, phone, date_of_birth) "
-                    + "VALUES ('eeeeeeee-0000-4000-8000-00000000000" + i + "', 'Big Number', 'big" + i + "@example.test', '+1415555019" + i + "', '1990-01-01')");
+                statement.executeUpdate("INSERT INTO customer_profile (full_name, email, phone, date_of_birth) "
+                    + "VALUES ('Big Number', 'big" + i + "@example.test', '+1415555019" + i + "', '1990-01-01')");
             }
             try (ResultSet rows = statement.executeQuery("SELECT customer_number FROM customer_profile")) {
                 while (rows.next()) {

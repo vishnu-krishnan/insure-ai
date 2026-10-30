@@ -5,7 +5,7 @@ import { server } from '../test/server'
 import { createQuote, getQuote, listQuotes } from './quotes'
 import { customerQuoteRequestSchema, emptyQuoteForm } from './schemas'
 
-const customerId = '3f1c6a52-6c0e-4e42-9a77-0b4f0d6c3f10'
+const customerId = '10000001'
 
 describe('quote schema', () => {
   it('rejects a zero coverage amount', () => {

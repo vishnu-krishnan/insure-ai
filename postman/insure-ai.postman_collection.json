@@ -91,6 +91,11 @@
                   "key": "client_secret",
                   "value": "{{callerClientSecret}}",
                   "type": "text"
+                },
+                {
+                  "key": "scope",
+                  "value": "quote:create quote:read customer:create customer:read",
+                  "type": "text"
                 }
               ]
             },

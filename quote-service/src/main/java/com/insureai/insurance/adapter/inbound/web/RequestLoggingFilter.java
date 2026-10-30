@@ -15,12 +15,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Writes one summary line per request. Query strings, headers and bodies are deliberately not logged.
+ * Writes one summary line per request: INFO normally, WARN for 4xx responses and slow requests, ERROR for 5xx.
+ * Query strings, headers and bodies are deliberately not logged.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
 public class RequestLoggingFilter extends OncePerRequestFilter {
     private static final Logger LOGGER = LoggerFactory.getLogger(RequestLoggingFilter.class);
+    private static final long SLOW_REQUEST_MILLIS = 2_000;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -37,13 +39,19 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         try {
             filterChain.doFilter(request, response);
         } finally {
-            LOGGER.info(
-                "{} {} -> {} ({} ms)",
-                request.getMethod(),
-                request.getRequestURI(),
-                response.getStatus(),
-                (System.nanoTime() - startNanos) / 1_000_000
-            );
+            long elapsedMillis = (System.nanoTime() - startNanos) / 1_000_000;
+            int status = response.getStatus();
+            boolean slow = elapsedMillis >= SLOW_REQUEST_MILLIS;
+            if (status >= 500) {
+                LOGGER.error("{} {} -> {} ({} ms)", request.getMethod(), request.getRequestURI(), status, elapsedMillis);
+            } else if (status >= 400 || slow) {
+                LOGGER.warn(
+                    "{} {} -> {} ({} ms){}",
+                    request.getMethod(), request.getRequestURI(), status, elapsedMillis, slow ? " slow request" : ""
+                );
+            } else {
+                LOGGER.info("{} {} -> {} ({} ms)", request.getMethod(), request.getRequestURI(), status, elapsedMillis);
+            }
         }
     }
 }

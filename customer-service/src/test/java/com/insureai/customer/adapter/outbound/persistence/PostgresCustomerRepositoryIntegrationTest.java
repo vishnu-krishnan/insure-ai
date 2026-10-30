@@ -12,7 +12,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
@@ -70,28 +69,28 @@ class PostgresCustomerRepositoryIntegrationTest {
 
     @Test
     void appliesCustomerOwnedMigrationAndPersistsProfile() {
-        assertEquals("4", flyway.info().current().getVersion().getVersion());
-        CustomerProfile unsaved = profile("3b241101-e2bb-4255-8caf-4136c566a962", "Alice Smith", "alice@example.test", "+14155552671");
+        assertEquals("5", flyway.info().current().getVersion().getVersion());
+        CustomerProfile unsaved = profile("Alice Smith", "alice@example.test", "+14155552671");
 
         CustomerProfile saved = customerRepository.save(unsaved);
 
         assertTrue(saved.customerNumber().matches("CUS-[0-9]{6,}"));
-        assertEquals(unsaved.customerId(), saved.customerId());
+        assertTrue(saved.customerId().matches("[0-9]{8,19}"));
         assertEquals(unsaved.fullName(), saved.fullName());
-        assertEquals(Optional.of(saved), customerRepository.findById(unsaved.customerId()));
+        assertEquals(Optional.of(saved), customerRepository.findById(saved.customerId()));
     }
 
     @Test
     void assignsIncreasingCustomerNumbers() {
-        CustomerProfile first = customerRepository.save(profile(UUID.randomUUID().toString(), "Seq One", "seq1@example.test", "+14155550001"));
-        CustomerProfile second = customerRepository.save(profile(UUID.randomUUID().toString(), "Seq Two", "seq2@example.test", "+14155550002"));
+        CustomerProfile first = customerRepository.save(profile("Seq One", "seq1@example.test", "+14155550001"));
+        CustomerProfile second = customerRepository.save(profile("Seq Two", "seq2@example.test", "+14155550002"));
 
         assertTrue(number(second) > number(first));
     }
 
     @Test
     void searchesByNameFragmentIgnoringCase() {
-        CustomerProfile saved = customerRepository.save(profile(UUID.randomUUID().toString(), "Zephyrine Quillfeather", "zq@example.test", "+14155550003"));
+        CustomerProfile saved = customerRepository.save(profile("Zephyrine Quillfeather", "zq@example.test", "+14155550003"));
 
         assertEquals(List.of(saved), customerRepository.search("phyrINE quill", 0, 10));
         assertEquals(List.of(saved), customerRepository.search("PHYRINE", 0, 10));
@@ -100,7 +99,7 @@ class PostgresCustomerRepositoryIntegrationTest {
 
     @Test
     void searchesByCustomerNumber() {
-        CustomerProfile saved = customerRepository.save(profile(UUID.randomUUID().toString(), "Number Lookup", "nl@example.test", "+14155550004"));
+        CustomerProfile saved = customerRepository.save(profile("Number Lookup", "nl@example.test", "+14155550004"));
 
         assertEquals(List.of(saved), customerRepository.search(saved.customerNumber(), 0, 10));
         assertEquals(List.of(saved), customerRepository.search(saved.customerNumber().toLowerCase(), 0, 10));
@@ -108,33 +107,41 @@ class PostgresCustomerRepositoryIntegrationTest {
 
     @Test
     void searchesByEmail() {
-        CustomerProfile saved = customerRepository.save(profile(UUID.randomUUID().toString(), "Email Lookup", "unique.mailbox.zz@example.test", "+14155550005"));
+        CustomerProfile saved = customerRepository.save(profile("Email Lookup", "unique.mailbox.zz@example.test", "+14155550005"));
 
         assertEquals(List.of(saved), customerRepository.search("MAILBOX.ZZ@", 0, 10));
     }
 
     @Test
     void searchesByPhone() {
-        CustomerProfile saved = customerRepository.save(profile(UUID.randomUUID().toString(), "Phone Lookup", "pl@example.test", "+447700900123"));
+        CustomerProfile saved = customerRepository.save(profile("Phone Lookup", "pl@example.test", "+447700900123"));
 
         assertEquals(List.of(saved), customerRepository.search("7700900123", 0, 10));
     }
 
     @Test
-    void searchesByFullUuidAndUuidPrefix() {
-        String id = "9f8e7d6c-1111-4222-8333-444455556666";
-        CustomerProfile saved = customerRepository.save(profile(id, "Uuid Lookup", "ul@example.test", "+14155550006"));
+    void searchesByFullCustomerIdAndIdPrefix() {
+        CustomerProfile saved = customerRepository.save(profile("Id Lookup", "il@example.test", "+14155550006"));
 
-        assertEquals(List.of(saved), customerRepository.search(id, 0, 10));
-        assertEquals(List.of(saved), customerRepository.search("9F8E7D6C-1111", 0, 10));
+        assertEquals(List.of(saved), customerRepository.search(saved.customerId(), 0, 10));
+        assertTrue(customerRepository.search(saved.customerId().substring(0, 4), 0, 100).contains(saved));
+    }
+
+    @Test
+    void assignsNumericIdsStartingAtTenMillionOne() {
+        CustomerProfile first = customerRepository.save(profile("Id One", "id1@example.test", "+14155550041"));
+        CustomerProfile second = customerRepository.save(profile("Id Two", "id2@example.test", "+14155550042"));
+
+        assertTrue(Long.parseLong(first.customerId()) >= 10000001L);
+        assertEquals(Long.parseLong(first.customerId()) + 1, Long.parseLong(second.customerId()));
     }
 
     @Test
     void percentAndUnderscoreAreMatchedLiterally() {
-        CustomerProfile percent = customerRepository.save(profile(UUID.randomUUID().toString(), "Wild 100% Card", "wild1@example.test", "+14155550007"));
-        CustomerProfile underscore = customerRepository.save(profile(UUID.randomUUID().toString(), "Wild_Card Under", "wild2@example.test", "+14155550008"));
-        customerRepository.save(profile(UUID.randomUUID().toString(), "Wild 100X Card", "wild3@example.test", "+14155550009"));
-        customerRepository.save(profile(UUID.randomUUID().toString(), "WildXCard Under", "wild4@example.test", "+14155550010"));
+        CustomerProfile percent = customerRepository.save(profile("Wild 100% Card", "wild1@example.test", "+14155550007"));
+        CustomerProfile underscore = customerRepository.save(profile("Wild_Card Under", "wild2@example.test", "+14155550008"));
+        customerRepository.save(profile("Wild 100X Card", "wild3@example.test", "+14155550009"));
+        customerRepository.save(profile("WildXCard Under", "wild4@example.test", "+14155550010"));
 
         assertEquals(List.of(percent), customerRepository.search("100%", 0, 10));
         assertEquals(List.of(underscore), customerRepository.search("wild_card", 0, 10));
@@ -147,7 +154,7 @@ class PostgresCustomerRepositoryIntegrationTest {
     void pagesNewestFirstWithTotals() {
         List<CustomerProfile> saved = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
-            saved.add(customerRepository.save(profile(UUID.randomUUID().toString(), "Pager Person" + i, "pager" + i + "@example.test", "+1415555100" + i)));
+            saved.add(customerRepository.save(profile("Pager Person" + i, "pager" + i + "@example.test", "+1415555100" + i)));
         }
 
         List<CustomerProfile> firstPage = customerRepository.search("pager person", 0, 2);
@@ -162,7 +169,7 @@ class PostgresCustomerRepositoryIntegrationTest {
 
     @Test
     void emptyTextMatchesEveryCustomer() {
-        customerRepository.save(profile(UUID.randomUUID().toString(), "Anyone Atall", "anyone@example.test", "+14155550011"));
+        customerRepository.save(profile("Anyone Atall", "anyone@example.test", "+14155550011"));
 
         assertTrue(customerRepository.countSearch("") >= 1);
         assertFalse(customerRepository.search("", 0, 10).isEmpty());
@@ -170,7 +177,7 @@ class PostgresCustomerRepositoryIntegrationTest {
 
     @Test
     void roundTripsAllCustomerDetails() {
-        CustomerProfile unsaved = detailed(UUID.randomUUID().toString(), "Detail Roundtrip", "dr@example.test", "+14155550020",
+        CustomerProfile unsaved = detailed("Detail Roundtrip", "dr@example.test", "+14155550020",
             "Cartographer", new Address("1 Main St", "Flat 2", "Springfield", "Illinois", "62701-1234", "US"));
 
         CustomerProfile saved = customerRepository.save(unsaved);
@@ -181,12 +188,12 @@ class PostgresCustomerRepositoryIntegrationTest {
         assertEquals(new BigDecimal("1234567.50"), saved.annualIncome());
         assertEquals(unsaved.address(), saved.address());
         assertEquals(unsaved.nominee(), saved.nominee());
-        assertEquals(Optional.of(saved), customerRepository.findById(unsaved.customerId()));
+        assertEquals(Optional.of(saved), customerRepository.findById(saved.customerId()));
     }
 
     @Test
     void roundTripsMissingAddressAndNominee() {
-        CustomerProfile saved = customerRepository.save(profile(UUID.randomUUID().toString(), "No Details", "nd@example.test", "+14155550021"));
+        CustomerProfile saved = customerRepository.save(profile("No Details", "nd@example.test", "+14155550021"));
 
         CustomerProfile loaded = customerRepository.findById(saved.customerId()).orElseThrow();
         assertNull(loaded.address());
@@ -199,7 +206,7 @@ class PostgresCustomerRepositoryIntegrationTest {
 
     @Test
     void roundTripsAddressWithoutLineTwo() {
-        CustomerProfile saved = customerRepository.save(detailed(UUID.randomUUID().toString(), "Single Line", "sl@example.test", "+14155550022",
+        CustomerProfile saved = customerRepository.save(detailed("Single Line", "sl@example.test", "+14155550022",
             null, new Address("9 Side Rd", null, "Leeds", "West Yorkshire", "LS1 4AP", "GB")));
 
         assertNull(customerRepository.findById(saved.customerId()).orElseThrow().address().line2());
@@ -207,7 +214,7 @@ class PostgresCustomerRepositoryIntegrationTest {
 
     @Test
     void searchesByOccupationCityAndPostalCode() {
-        CustomerProfile saved = customerRepository.save(detailed(UUID.randomUUID().toString(), "Detail Search", "ds@example.test", "+14155550023",
+        CustomerProfile saved = customerRepository.save(detailed("Detail Search", "ds@example.test", "+14155550023",
             "Lighthouse Keeper", new Address("5 Harbor Way", null, "Zanzibarville", "Coast", "QX9-77Z", "US")));
 
         assertEquals(List.of(saved), customerRepository.search("lighthouse KEEP", 0, 10));
@@ -219,10 +226,10 @@ class PostgresCustomerRepositoryIntegrationTest {
 
     @Test
     void rejectsDuplicateEmailIgnoringCase() {
-        customerRepository.save(profile(UUID.randomUUID().toString(), "Dup Email", "dup.email@example.test", "+14155550031"));
+        customerRepository.save(profile("Dup Email", "dup.email@example.test", "+14155550031"));
 
         DuplicateCustomerException exception = assertThrows(DuplicateCustomerException.class, () -> customerRepository.save(
-            profile(UUID.randomUUID().toString(), "Dup Email Two", "DUP.Email@Example.test", "+14155550032")));
+            profile("Dup Email Two", "DUP.Email@Example.test", "+14155550032")));
 
         assertEquals("email", exception.field());
         assertTrue(customerRepository.existsByEmail("dup.email@example.test"));
@@ -232,24 +239,24 @@ class PostgresCustomerRepositoryIntegrationTest {
 
     @Test
     void rejectsDuplicatePhone() {
-        customerRepository.save(profile(UUID.randomUUID().toString(), "Dup Phone", "dup.phone1@example.test", "+14155550033"));
+        customerRepository.save(profile("Dup Phone", "dup.phone1@example.test", "+14155550033"));
 
         DuplicateCustomerException exception = assertThrows(DuplicateCustomerException.class, () -> customerRepository.save(
-            profile(UUID.randomUUID().toString(), "Dup Phone Two", "dup.phone2@example.test", "+14155550033")));
+            profile("Dup Phone Two", "dup.phone2@example.test", "+14155550033")));
 
         assertEquals("phone", exception.field());
         assertTrue(customerRepository.existsByPhone("+14155550033"));
         assertFalse(customerRepository.existsByPhone("+14155550034"));
     }
 
-    private static CustomerProfile detailed(String id, String name, String email, String phone, String occupation, Address address) {
-        return new CustomerProfile(id, null, name, email, phone, LocalDate.of(1990, 1, 1),
+    private static CustomerProfile detailed(String name, String email, String phone, String occupation, Address address) {
+        return new CustomerProfile(null, null, name, email, phone, LocalDate.of(1990, 1, 1),
             Gender.FEMALE, MaritalStatus.DIVORCED, occupation, new BigDecimal("1234567.5"),
             address, new Nominee("Pat Doe", "Sibling"), null, null);
     }
 
-    private static CustomerProfile profile(String id, String name, String email, String phone) {
-        return new CustomerProfile(id, null, name, email, phone, LocalDate.of(1990, 1, 1), null, null, null, null, null, null, null, null);
+    private static CustomerProfile profile(String name, String email, String phone) {
+        return new CustomerProfile(null, null, name, email, phone, LocalDate.of(1990, 1, 1), null, null, null, null, null, null, null, null);
     }
 
     private static long number(CustomerProfile customer) {
@@ -262,7 +269,7 @@ class PostgresCustomerRepositoryIntegrationTest {
             INSERT INTO customer_profile (customer_id, full_name, email, phone, date_of_birth)
             VALUES (?, ?, ?, ?, ?)
             """,
-            "3b241101-e2bb-4255-8caf-4136c566a963",
+            "10000099",
             "Bob Jones",
             "bob@example.test",
             "4155552671",

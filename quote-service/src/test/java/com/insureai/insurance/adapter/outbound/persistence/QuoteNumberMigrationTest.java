@@ -41,7 +41,7 @@ class QuoteNumberMigrationTest {
     void backfillsExistingQuotesWithDistinctNumbersInQuoteIdOrder() {
         Flyway.configure().dataSource(dataSource).target("2").load().migrate();
         insertLegacyQuote("c-quote", "Carol White", null);
-        insertLegacyQuote("a-quote", "Alice Smith", "3b241101-e2bb-4255-8caf-4136c566a962");
+        insertLegacyQuote("a-quote", "Alice Smith", "10000001");
         insertLegacyQuote("b-quote", "Bob Jones", null);
 
         Flyway.configure().dataSource(dataSource).target("3").load().migrate();

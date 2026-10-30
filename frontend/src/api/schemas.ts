@@ -200,7 +200,7 @@ const dayOffset = (days: number) => new Date(Date.now() + days * 86_400_000).toI
 
 export const customerQuoteRequestSchema = z
   .object({
-    customerId: z.uuid('Choose a customer'),
+    customerId: z.string().regex(/^[0-9]{8,19}$/, 'Choose a customer'),
     coverageType: z.enum(COVERAGE_TYPES, 'Choose a coverage type'),
     coverageAmount: amount,
     policyTermYears: z

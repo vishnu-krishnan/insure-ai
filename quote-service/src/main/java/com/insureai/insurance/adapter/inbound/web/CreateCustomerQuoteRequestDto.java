@@ -17,8 +17,8 @@ import com.insureai.insurance.application.port.inbound.CreateCustomerQuoteComman
 public record CreateCustomerQuoteRequestDto(
     @NotBlank(message = "customerId is required")
     @Pattern(
-        regexp = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
-        message = "customerId must be a valid UUID"
+        regexp = "^[0-9]{8,19}$",
+        message = "customerId must be a numeric ID of 8 to 19 digits"
     )
     String customerId,
 

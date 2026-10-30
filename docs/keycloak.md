@@ -10,11 +10,11 @@ Configure these values in the ignored repository-root `.env` file, using `.env.e
 |---|---|
 | `KEYCLOAK_PUBLIC_URL` | Public base URL that Keycloak advertises. |
 | `KEYCLOAK_ISSUER_URI` | Exact issuer URI for the selected realm, copied from that realm's OpenID configuration. |
-| `KEYCLOAK_TOKEN_URI` | Realm's OAuth2 token endpoint, copied from the same OpenID configuration; used by Quote Service's client-credentials flow. |
-| `KEYCLOAK_ADMIN_USERNAME`, `KEYCLOAK_ADMIN_PASSWORD` | Local Keycloak bootstrap administrator credentials. |
+| `KEYCLOAK_TOKEN_URI` | Realm's OAuth2 token endpoint, copied from the same OpenID configuration; used by Quote Service's client-credentials flow and by Postman. |
+| `KEYCLOAK_ADMIN_USERNAME`, `KEYCLOAK_ADMIN_PASSWORD` | Keycloak administrator used by Compose to bootstrap Keycloak and by `docker/keycloak/configure-realm.sh`. After first start, create a permanent admin in the `master` realm, delete the temporary one, and put the permanent account here. |
 | `QUOTE_JWT_AUDIENCE` | Audience Quote Service accepts; configure the matching Keycloak audience mapper. |
 | `CUSTOMER_JWT_AUDIENCE` | Audience Customer Service accepts; configure the matching Keycloak audience mapper. |
-| `KEYCLOAK_QUOTE_CLIENT_ID`, `KEYCLOAK_QUOTE_CLIENT_SECRET` | Confidential client credentials used only for Quote Service's Customer Service client-credentials flow. |
+| `KEYCLOAK_QUOTE_CLIENT_ID`, `KEYCLOAK_QUOTE_CLIENT_SECRET` | Credentials of the `insure-backend` client (see [Backend client](#backend-client)). Quote Service uses them for its Customer Service client-credentials flow, requesting only `customer:read`. |
 
 Database credentials in the same file are required by Compose. Do not commit `.env`, client secrets, tokens, signing keys, or production URLs.
 
@@ -28,10 +28,10 @@ Create a realm in the local Keycloak Admin Console. The realm name is deliberate
 
 Configure the realm and its clients as follows:
 
-1. Create a confidential client for Quote Service and enable service accounts/client credentials. Set its client ID and secret in the environment.
-2. Create a client for authenticated API callers. Issue access tokens whose `aud` contains the configured Quote Service audience and whose `scope` claim grants `quote:create` and/or `quote:read`.
-3. Configure the Quote Service client-credentials service account with `customer:read`; ensure its access token audience contains the Customer Service audience.
-4. Create caller access with Customer Service audience and `customer:create` and/or `customer:read` scopes for authorized customer operations.
+1. Create the confidential `insure-backend` client with service accounts enabled (see [Backend client](#backend-client)). Set its client ID and secret in the environment.
+2. For browser users, use the public `insure-ui` client (see [Web UI client](#web-ui-client)). For server-side callers such as Postman, use `insure-backend`. Access tokens must have an `aud` containing the configured Quote Service audience and a `scope` claim granting `quote:create` and/or `quote:read`.
+3. Quote Service requests only `customer:read` from `insure-backend`; the resulting token must carry the Customer Service audience.
+4. Customer operations need the Customer Service audience and the `customer:create` and/or `customer:read` scopes.
 5. Use Keycloak client scopes or protocol mappers to place the required scope strings in the access-token `scope` claim and to add the corresponding service audience. Do not rely on roles that the application does not map.
 6. Configure access-token lifetimes and signing algorithms according to the organization's identity policy. The services accept standard Keycloak-signed JWTs through issuer metadata and do not accept unsigned or opaque tokens.
 
@@ -61,7 +61,38 @@ The browser app in `frontend/` signs in with a public client and the authorizati
 | Client scopes | `quote:create`, `quote:read`, `customer:create`, `customer:read`, assigned as default scopes |
 | Audience mappers | one each for `QUOTE_JWT_AUDIENCE` and `CUSTOMER_JWT_AUDIENCE`, so one access token is accepted by both services |
 
-`docker/keycloak/configure-realm.sh` creates anything missing and leaves existing objects alone; run it with `--dry-run` first to see what would change. It reads the admin credentials from the environment or the ignored `.env`, passes them to Keycloak on stdin, and creates a local test user `agent1` with the `agent` role. The generated password is printed once at creation and is not stored anywhere.
+`docker/keycloak/configure-realm.sh` creates anything missing and leaves existing objects alone; run it with `--dry-run` first to see what would change. Besides the `insure-ui` client above, it creates the `insure-backend` client. It reads the admin credentials from the environment or the ignored `.env`, passes them to Keycloak on stdin, and creates a local test user `agent1` with the `agent` role. The generated `agent1` password and the `insure-backend` secret are printed once at creation.
+
+## Backend client
+
+`insure-backend` is the confidential client for server-to-server calls and API testing (Postman). It uses the client-credentials grant; there is no user login.
+
+| Item | Value |
+|---|---|
+| Client ID | `insure-backend` (override with `BACKEND_CLIENT_ID` when running the script) |
+| Client authentication | On, with service accounts enabled; standard flow and direct access grants off |
+| Client scopes | `quote:create`, `quote:read`, `customer:create`, `customer:read`, assigned as **optional** scopes |
+| Audience mappers | one each for `QUOTE_JWT_AUDIENCE` and `CUSTOMER_JWT_AUDIENCE` |
+| Secret | Admin Console > Clients > `insure-backend` > Credentials; printed once by the script when it creates the client |
+
+Because the scopes are optional, a token carries only the scopes its caller asks for with the `scope` parameter. Quote Service asks for `customer:read` and Postman asks for all four, so the same client serves both without giving Quote Service more than it needs. A request with no `scope` gets none of the four and the services answer 403. Both audiences are always present.
+
+Put the secret in the ignored `.env` as `KEYCLOAK_QUOTE_CLIENT_SECRET` and in your Postman environment as `callerClientSecret`. If you change `.env`, restart Quote Service so it picks the value up.
+
+## Postman
+
+Import `postman/insure-ai.postman_collection.json` and one environment file, then select that environment: `postman/insure-ai.local.postman_environment.json` (*Insure AI - Local*, no secret) or your own git-ignored `postman/insure-ai.private.postman_environment.json` (*Insure AI - Local (private)*) that includes the `insure-backend` secret.
+
+| Variable | Value |
+|---|---|
+| `keycloakBaseUrl`, `realm` | `http://localhost:8280`, `insure-ai` |
+| `quoteBaseUrl`, `customerBaseUrl` | `http://localhost:8281`, `http://localhost:8282` |
+| `callerClientId` | `insure-backend` |
+| `callerClientSecret` | empty in the tracked file. Keep the secret in `postman/insure-ai.private.postman_environment.json` (git-ignored, *Insure AI - Local (private)*) or paste it locally; never commit it |
+| `tokenScope` | space-separated scopes requested by *Auth > Get access token* (all four by default) |
+| `quoteAudience`, `customerAudience`, `uiClientId`, `agentUsername` | reference values; the collection does not send them |
+
+Run *Auth > Get access token*, which stores `accessToken`, then any other request. To test a missing-permission response, remove a scope from `tokenScope` and fetch a new token.
 
 ## Login theme
 

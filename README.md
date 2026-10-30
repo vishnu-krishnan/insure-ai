@@ -59,7 +59,7 @@ The versioned API currently supports:
 
 The v1 endpoints use the `QuoteRequestDto`/`QuoteResponseDto` HTTP contract and the v2 endpoint uses `CreateCustomerQuoteRequestDto`/`CustomerQuoteResponseDto`. Domain types remain inside the service boundary.
 
-Customer Service is an independent Maven application in `customer-service`. It exclusively owns customer profiles and its Flyway migrations. It exposes `POST /api/v1/customers`, `GET /api/v1/customers/{customerId}` and `GET /api/v1/customers?q=&page=&size=` (case-insensitive contains search over name, customer number, email, phone and customer ID, newest first). Every customer has a business `customerNumber` such as `CUS-000001`; the UUID stays the primary key used in paths. Quote Service v2 obtains customer details through that HTTP API using an OAuth2 client-credentials token; it does not access Customer Service tables. Existing Quote v1 requests and rows remain supported; the nullable `customer_id` introduced by migration V2 leaves existing records unchanged.
+Customer Service is an independent Maven application in `customer-service`. It exclusively owns customer profiles and its Flyway migrations. It exposes `POST /api/v1/customers`, `GET /api/v1/customers/{customerId}` and `GET /api/v1/customers?q=&page=&size=` (case-insensitive contains search over name, customer number, email, phone and customer ID, newest first). Every customer has a business `customerNumber` such as `CUS-000001`; the numeric `customerId` (digits only, starting at `10000001`) stays the primary key used in paths. Quote Service v2 obtains customer details through that HTTP API using an OAuth2 client-credentials token; it does not access Customer Service tables. Existing Quote v1 requests and rows remain supported; the nullable `customer_id` introduced by migration V2 leaves existing records unchanged.
 
 ## Local services and Keycloak
 
@@ -116,29 +116,3 @@ Run unit and PostgreSQL integration tests, followed by packaging, in each indepe
 ```
 
 Unit tests do not require PostgreSQL. Integration tests use Testcontainers and a separate, ephemeral PostgreSQL 16 instance; they do not connect to the local Compose database. Docker must be available, and these required tests fail rather than silently skip when a container cannot start.
-
-## Safe database lifecycle and backups
-
-Stop the database without deleting data:
-
-```sh
-docker compose stop insure-db
-```
-
-Starting the service again, restarting its container, or removing and recreating the container preserves data because the database directory is on `insure-postgres-data`. Do not remove that named volume for routine cleanup: **deleting `insure-postgres-data` permanently deletes the local database contents**.
-
-Create a custom-format backup in the project directory:
-
-```sh
-docker compose exec -T insure-db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > insure_db.dump
-docker compose exec -T insure-db sh -c 'pg_dump -U "$POSTGRES_USER" -d customer_db -Fc' > customer_db.dump
-```
-
-Restore that backup only when intentionally replacing the contents of this database, and retain a separate backup before doing so:
-
-```sh
-docker compose exec -T insure-db sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' < insure_db.dump
-docker compose exec -T insure-db sh -c 'pg_restore -U "$POSTGRES_USER" -d customer_db --clean --if-exists' < customer_db.dump
-```
-
-The dump contains application data and should be stored securely. Keep `.env` and backup files out of version control.

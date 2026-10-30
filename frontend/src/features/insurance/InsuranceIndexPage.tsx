@@ -16,8 +16,10 @@ import { IconArrowRight, IconCheck } from '@tabler/icons-react'
 import { Link } from 'react-router-dom'
 
 import { Reveal } from '../../app/Reveal'
+import { CoverPhoto } from '../shared/CoverPhoto'
 import { coverageStyle } from '../shared/coverage'
 import { COVER_GUIDES, GUIDE_QUESTIONS } from './catalogue'
+import { COVER_PHOTOS } from './photos'
 
 export function InsuranceIndexPage() {
   return (
@@ -54,9 +56,17 @@ export function InsuranceIndexPage() {
                     h="100%"
                     style={{ textDecoration: 'none', color: 'inherit' }}
                   >
+                    <Card.Section mb="md">
+                      <CoverPhoto
+                        src={COVER_PHOTOS[guide.code].card}
+                        alt={COVER_PHOTOS[guide.code].alt}
+                        height={150}
+                        position={COVER_PHOTOS[guide.code].position}
+                      />
+                    </Card.Section>
                     <Stack gap="sm" h="100%">
-                      <ThemeIcon size={52} radius="lg" variant="light" color={style.color}>
-                        <style.icon size={28} stroke={1.6} />
+                      <ThemeIcon size={40} radius="md" variant="light" color={style.color}>
+                        <style.icon size={22} stroke={1.6} />
                       </ThemeIcon>
                       <Title order={3} fz="lg">
                         {guide.name}

@@ -31,6 +31,8 @@ HELP.md
 
 # Logs and temporary files
 *.log
+*.log.gz
+logs/
 *.tmp
 *.swp
 *.swo
@@ -53,6 +55,7 @@ files/
 !.env.example
 *.local
 *.local.properties
+postman/*.private.postman_environment.json
 
 # Operating system files
 .DS_Store

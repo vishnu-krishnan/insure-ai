@@ -72,7 +72,7 @@ class CustomerControllerTest {
     void createCustomerRequiresCustomerCreateScope() throws Exception {
         when(createCustomerUseCase.createCustomer(any()))
             .thenReturn(new CustomerProfile(
-                "3b241101-e2bb-4255-8caf-4136c566a962",
+                "10000001",
                 "CUS-000001",
                 "Alice Smith",
                 "alice@example.test",
@@ -88,7 +88,7 @@ class CustomerControllerTest {
                     {"fullName":"Alice Smith","email":"alice@example.test","phone":"+14155552671","dateOfBirth":"1990-01-01"}
                     """))
             .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.customerId").value("3b241101-e2bb-4255-8caf-4136c566a962"))
+            .andExpect(jsonPath("$.customerId").value("10000001"))
             .andExpect(jsonPath("$.customerNumber").value("CUS-000001"))
             .andExpect(jsonPath("$.email").value("alice@example.test"));
         verify(createCustomerUseCase).createCustomer(any(CreateCustomerCommand.class));
@@ -135,14 +135,14 @@ class CustomerControllerTest {
 
     @Test
     void rejectsUnauthenticatedCustomerRequest() throws Exception {
-        mockMvc.perform(get("/api/v1/customers/3b241101-e2bb-4255-8caf-4136c566a962"))
+        mockMvc.perform(get("/api/v1/customers/10000001"))
             .andExpect(status().isUnauthorized());
         verifyNoInteractions(getCustomerUseCase);
     }
 
     @Test
     void rejectsCustomerRequestWithoutRequiredScope() throws Exception {
-        mockMvc.perform(get("/api/v1/customers/3b241101-e2bb-4255-8caf-4136c566a962")
+        mockMvc.perform(get("/api/v1/customers/10000001")
                 .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:read"))))
             .andExpect(status().isForbidden());
         verifyNoInteractions(getCustomerUseCase);
@@ -150,9 +150,9 @@ class CustomerControllerTest {
 
     @Test
     void getCustomerReturnsProfileForAuthorizedCaller() throws Exception {
-        when(getCustomerUseCase.getCustomerById("3b241101-e2bb-4255-8caf-4136c566a962"))
+        when(getCustomerUseCase.getCustomerById("10000001"))
             .thenReturn(new CustomerProfile(
-                "3b241101-e2bb-4255-8caf-4136c566a962",
+                "10000001",
                 "CUS-000001",
                 "Alice Smith",
                 "alice@example.test",
@@ -161,13 +161,13 @@ class CustomerControllerTest {
                 null, null, null, null, null, null, null, null
             ));
 
-        mockMvc.perform(get("/api/v1/customers/3b241101-e2bb-4255-8caf-4136c566a962")
+        mockMvc.perform(get("/api/v1/customers/10000001")
                 .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_customer:read"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.customerNumber").value("CUS-000001"))
             .andExpect(jsonPath("$.fullName").value("Alice Smith"))
             .andExpect(jsonPath("$.dateOfBirth").value("1990-01-01"));
-        verify(getCustomerUseCase).getCustomerById("3b241101-e2bb-4255-8caf-4136c566a962");
+        verify(getCustomerUseCase).getCustomerById("10000001");
     }
 
     @Test
@@ -187,7 +187,7 @@ class CustomerControllerTest {
 
     @Test
     void unauthenticatedRequestsReceiveProblemDetailWithChallengeHeader() throws Exception {
-        mockMvc.perform(get("/api/v1/customers/3b241101-e2bb-4255-8caf-4136c566a962"))
+        mockMvc.perform(get("/api/v1/customers/10000001"))
             .andExpect(status().isUnauthorized())
             .andExpect(header().exists("WWW-Authenticate"))
             .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
@@ -195,7 +195,7 @@ class CustomerControllerTest {
 
     @Test
     void forbiddenRequestsReceiveProblemDetail() throws Exception {
-        mockMvc.perform(get("/api/v1/customers/3b241101-e2bb-4255-8caf-4136c566a962")
+        mockMvc.perform(get("/api/v1/customers/10000001")
                 .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:read"))))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
@@ -203,10 +203,10 @@ class CustomerControllerTest {
 
     @Test
     void missingCustomerReturnsStableCodeAndEchoesCorrelationId() throws Exception {
-        when(getCustomerUseCase.getCustomerById("3b241101-e2bb-4255-8caf-4136c566a962"))
-            .thenThrow(new CustomerNotFoundException("3b241101-e2bb-4255-8caf-4136c566a962"));
+        when(getCustomerUseCase.getCustomerById("10000001"))
+            .thenThrow(new CustomerNotFoundException("10000001"));
 
-        mockMvc.perform(get("/api/v1/customers/3b241101-e2bb-4255-8caf-4136c566a962")
+        mockMvc.perform(get("/api/v1/customers/10000001")
                 .header("X-Correlation-Id", "trace-456")
                 .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_customer:read"))))
             .andExpect(status().isNotFound())
@@ -228,10 +228,10 @@ class CustomerControllerTest {
 
     @Test
     void unexpectedFailuresReturnSafeInternalErrorProblemDetail() throws Exception {
-        when(getCustomerUseCase.getCustomerById("3b241101-e2bb-4255-8caf-4136c566a962"))
+        when(getCustomerUseCase.getCustomerById("10000001"))
             .thenThrow(new IllegalStateException("secret internal detail"));
 
-        mockMvc.perform(get("/api/v1/customers/3b241101-e2bb-4255-8caf-4136c566a962")
+        mockMvc.perform(get("/api/v1/customers/10000001")
                 .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_customer:read"))))
             .andExpect(status().isInternalServerError())
             .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
@@ -241,7 +241,7 @@ class CustomerControllerTest {
     @Test
     void searchCustomersReturnsPageForAuthorizedCaller() throws Exception {
         CustomerProfile alice = new CustomerProfile(
-            "3b241101-e2bb-4255-8caf-4136c566a962",
+            "10000001",
             "CUS-000001",
             "Alice Smith",
             "alice@example.test",
@@ -332,7 +332,7 @@ class CustomerControllerTest {
 
     private static CustomerProfile detailedCustomer() {
         return new CustomerProfile(
-            "3b241101-e2bb-4255-8caf-4136c566a962", "CUS-000001", "Alice Smith", "alice@example.test", "+14155552671",
+            "10000001", "CUS-000001", "Alice Smith", "alice@example.test", "+14155552671",
             LocalDate.of(1990, 1, 1), Gender.FEMALE, MaritalStatus.MARRIED, "Engineer", new BigDecimal("52000.50"),
             new Address("1 Main St", "Flat 2", "Pune", "MH", "411001", "IN"), new Nominee("Nina Rao", "Spouse"),
             Instant.parse("2026-10-27T10:15:30.123456Z"), Instant.parse("2026-10-27T10:15:30.123456Z")
@@ -391,7 +391,7 @@ class CustomerControllerTest {
     @Test
     void createCustomerWithoutNewFieldsStillSucceeds() throws Exception {
         CustomerProfile plain = new CustomerProfile(
-            "3b241101-e2bb-4255-8caf-4136c566a962", "CUS-000001", "Alice Smith", "alice@example.test", "+14155552671",
+            "10000001", "CUS-000001", "Alice Smith", "alice@example.test", "+14155552671",
             LocalDate.of(1990, 1, 1), null, null, null, null, null, null,
             Instant.parse("2026-10-27T10:15:30Z"), Instant.parse("2026-10-27T10:15:30Z")
         );
@@ -431,9 +431,9 @@ class CustomerControllerTest {
 
     @Test
     void getCustomerReturnsDetails() throws Exception {
-        when(getCustomerUseCase.getCustomerById("3b241101-e2bb-4255-8caf-4136c566a962")).thenReturn(detailedCustomer());
+        when(getCustomerUseCase.getCustomerById("10000001")).thenReturn(detailedCustomer());
 
-        mockMvc.perform(get("/api/v1/customers/3b241101-e2bb-4255-8caf-4136c566a962")
+        mockMvc.perform(get("/api/v1/customers/10000001")
                 .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_customer:read"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.gender").value("FEMALE"))

@@ -6,7 +6,7 @@ import { createCustomer, getCustomer, searchCustomers } from './customers'
 import { customerRequestSchema, emptyCustomerForm, toCustomerPayload } from './schemas'
 
 const customer = {
-  customerId: '3f1c6a52-6c0e-4e42-9a77-0b4f0d6c3f10',
+  customerId: '10000001',
   customerNumber: 'CUS-000001',
   fullName: 'Asha Menon',
   email: 'asha@example.com',

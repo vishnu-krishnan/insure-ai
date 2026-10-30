@@ -2,6 +2,7 @@ package com.insureai.insurance.adapter.outbound.customer;
 
 import java.time.Duration;
 
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,6 +22,9 @@ import com.insureai.insurance.domain.exception.CustomerServiceUnavailableExcepti
 
 @Configuration
 public class CustomerServiceClientConfiguration {
+    private static final String CORRELATION_HEADER = "X-Correlation-Id";
+    private static final String CORRELATION_MDC_KEY = "correlationId";
+
     @Bean
     OAuth2AuthorizedClientManager customerServiceAuthorizedClientManager(
         ClientRegistrationRepository registrations,
@@ -62,6 +66,10 @@ public class CustomerServiceClientConfiguration {
                     HttpHeaders.AUTHORIZATION,
                     "Bearer " + client.getAccessToken().getTokenValue()
                 );
+                String correlationId = MDC.get(CORRELATION_MDC_KEY);
+                if (correlationId != null) {
+                    request.getHeaders().set(CORRELATION_HEADER, correlationId);
+                }
                 return execution.execute(request, body);
             })
             .build();

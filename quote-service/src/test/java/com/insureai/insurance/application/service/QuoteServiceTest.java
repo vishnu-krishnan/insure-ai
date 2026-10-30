@@ -199,7 +199,7 @@ class QuoteServiceTest {
 
     @Test
     void createsQuoteUsingCustomerProfileAndPersistsSnapshot() {
-        String customerId = "3b241101-e2bb-4255-8caf-4136c566a962";
+        String customerId = "10000001";
         when(customerProfileLookup.findCustomer(customerId)).thenReturn(
             new CustomerProfileSnapshot(customerId, "Alice Smith", LocalDate.of(1990, 10, 27), null)
         );
@@ -216,7 +216,7 @@ class QuoteServiceTest {
 
     @Test
     void copiesCustomerNumberFromProfileSnapshot() {
-        String customerId = "3b241101-e2bb-4255-8caf-4136c566a962";
+        String customerId = "10000001";
         when(customerProfileLookup.findCustomer(customerId)).thenReturn(
             new CustomerProfileSnapshot(customerId, "Alice Smith", LocalDate.of(1990, 10, 27), "CUS-000001")
         );
@@ -244,7 +244,7 @@ class QuoteServiceTest {
 
     @Test
     void rejectsUnknownCustomerAndDoesNotPersistQuote() {
-        String customerId = "3b241101-e2bb-4255-8caf-4136c566a962";
+        String customerId = "10000001";
         when(customerProfileLookup.findCustomer(customerId))
             .thenThrow(new CustomerReferenceNotFoundException(customerId));
 
@@ -285,7 +285,7 @@ class QuoteServiceTest {
 
     @Test
     void customerQuoteAppliesDefaultsAndCarriesDetails() {
-        String customerId = "3b241101-e2bb-4255-8caf-4136c566a962";
+        String customerId = "10000001";
         when(customerProfileLookup.findCustomer(customerId)).thenReturn(
             new CustomerProfileSnapshot(customerId, "Alice Smith", LocalDate.of(1990, 10, 27), null)
         );
@@ -495,7 +495,7 @@ class QuoteServiceTest {
 
     @Test
     void customerQuoteValidatesAndStoresTypeDetails() {
-        String customerId = "3b241101-e2bb-4255-8caf-4136c566a962";
+        String customerId = "10000001";
         when(customerProfileLookup.findCustomer(customerId)).thenReturn(
             new CustomerProfileSnapshot(customerId, "Alice Smith", LocalDate.of(1990, 10, 27), null));
         Map<String, Object> health = Map.of(

@@ -12,6 +12,8 @@ import {
   type CustomerQuoteRequest,
 } from '../../api/schemas'
 import { COVER_GUIDES } from '../insurance/catalogue'
+import { COVER_PHOTOS } from '../insurance/photos'
+import { CoverPhoto } from '../shared/CoverPhoto'
 import { coverageStyle } from '../shared/coverage'
 import { TYPE_FIELDS, emptyDetails, fieldChoices } from '../portal/typeFields'
 import { FormErrors } from '../shared/FormErrors'
@@ -170,6 +172,16 @@ export function QuoteCreatePage({ type: fixedType }: { type?: string } = {}) {
             </Stack>
           </Card>
           <Card p={{ base: 'md', sm: 'xl' }} className="lift-soft" style={{ position: 'sticky', top: 16 }}>
+            {COVER_PHOTOS[type] && (
+              <Card.Section mb="md">
+                <CoverPhoto
+                  src={COVER_PHOTOS[type].card}
+                  alt={COVER_PHOTOS[type].alt}
+                  height={140}
+                  position={COVER_PHOTOS[type].position}
+                />
+              </Card.Section>
+            )}
             <Stack gap="sm">
               <Group gap="sm" wrap="nowrap">
                 <ThemeIcon size={40} radius="md" variant="light" color={style.color}>

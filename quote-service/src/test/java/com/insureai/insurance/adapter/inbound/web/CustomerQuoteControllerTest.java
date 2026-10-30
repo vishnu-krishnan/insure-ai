@@ -49,7 +49,7 @@ import com.insureai.insurance.domain.model.PolicyQuote;
     "spring.security.oauth2.client.provider.keycloak.token-uri=https://issuer.example/token"
 })
 class CustomerQuoteControllerTest {
-    private static final String CUSTOMER_ID = "3b241101-e2bb-4255-8caf-4136c566a962";
+    private static final String CUSTOMER_ID = "10000001";
 
     @Autowired
     private MockMvc mockMvc;
@@ -69,7 +69,7 @@ class CustomerQuoteControllerTest {
                 .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:create")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"customerId":"3b241101-e2bb-4255-8caf-4136c566a962","coverageType":"AUTO","coverageAmount":250000}
+                    {"customerId":"10000001","coverageType":"AUTO","coverageAmount":250000}
                     """))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.customerId").value(CUSTOMER_ID))
@@ -92,7 +92,7 @@ class CustomerQuoteControllerTest {
                 .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:create")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"customerId":"3b241101-e2bb-4255-8caf-4136c566a962","coverageType":"LIFE","coverageAmount":250000,
+                    {"customerId":"10000001","coverageType":"LIFE","coverageAmount":250000,
                      "details":{"smoker":false,"occupationClass":"CLASS_1","nomineeName":"Jane Doe",
                      "nomineeRelationship":"Spouse"}}
                     """))
@@ -111,7 +111,20 @@ class CustomerQuoteControllerTest {
                 .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:create")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"customerId":"not-a-uuid","coverageType":"AUTO","coverageAmount":250000}
+                    {"customerId":"not-numeric","coverageType":"AUTO","coverageAmount":250000}
+                    """))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.title").value("Validation failed"));
+        verifyNoInteractions(createCustomerQuoteUseCase);
+    }
+
+    @Test
+    void legacyUuidCustomerIdIsRejectedBeforeUseCase() throws Exception {
+        mockMvc.perform(post("/api/v2/quotes")
+                .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:create")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"customerId":"3b241101-e2bb-4255-8caf-4136c566a962","coverageType":"AUTO","coverageAmount":250000}
                     """))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.title").value("Validation failed"));
@@ -127,7 +140,7 @@ class CustomerQuoteControllerTest {
                 .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_quote:create")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"customerId":"3b241101-e2bb-4255-8caf-4136c566a962","coverageType":"AUTO","coverageAmount":250000}
+                    {"customerId":"10000001","coverageType":"AUTO","coverageAmount":250000}
                     """))
             .andExpect(status().isUnprocessableEntity())
             .andExpect(jsonPath("$.title").value("Invalid customer reference"));

@@ -30,6 +30,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(DomainValidationException.class)
     public ResponseEntity<ProblemDetail> handleDomainValidation(DomainValidationException exception) {
+        LOGGER.warn("Quote request rejected: {}", exception.getMessage());
         ProblemDetail problem = ApiProblem.of(
             HttpStatus.BAD_REQUEST,
             "Invalid quote request",
@@ -44,6 +45,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(QuoteNotFoundException.class)
     public ResponseEntity<ProblemDetail> handleQuoteNotFound(QuoteNotFoundException exception) {
+        LOGGER.info("Quote lookup found nothing: {}", exception.getMessage());
         return ApiProblem.response(
             HttpStatus.NOT_FOUND,
             "Quote not found",
@@ -54,6 +56,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(CustomerReferenceNotFoundException.class)
     public ResponseEntity<ProblemDetail> handleUnknownCustomer(CustomerReferenceNotFoundException exception) {
+        LOGGER.warn("Quote request rejected: {}", exception.getMessage());
         return ApiProblem.response(
             HttpStatus.UNPROCESSABLE_ENTITY,
             "Invalid customer reference",
@@ -119,6 +122,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             .map(error -> new FieldViolation(error.getField(), error.getDefaultMessage()))
             .toList();
         String detail = violations.isEmpty() ? "Request validation failed" : violations.get(0).message();
+        LOGGER.warn("Quote request validation failed on fields {}.", violations.stream().map(FieldViolation::field).distinct().toList());
 
         ProblemDetail problem = ApiProblem.of(HttpStatus.BAD_REQUEST, "Validation failed", detail, "VALIDATION_FAILED");
         problem.setProperty("errors", violations);

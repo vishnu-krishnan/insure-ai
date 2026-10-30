@@ -22,8 +22,10 @@ import { Link, useParams } from 'react-router-dom'
 import { Reveal } from '../../app/Reveal'
 import { useAuth } from '../../auth/useAuth'
 import { formatMoney } from '../quotes/format'
+import { CoverPhoto } from '../shared/CoverPhoto'
 import { coverageStyle } from '../shared/coverage'
 import { COVER_GUIDES, findGuide } from './catalogue'
+import { COVER_PHOTOS } from './photos'
 import { estimatePremium } from './estimate'
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
@@ -46,7 +48,7 @@ function Estimator({ code }: { code: string }) {
   const estimate = typeof cover === 'number' && typeof age === 'number' ? estimatePremium(code, cover, age) : null
 
   return (
-    <Card p={{ base: 'md', sm: 'xl' }} style={{ position: 'sticky', top: 84 }}>
+    <Card p={{ base: 'md', sm: 'xl' }}>
       <Stack gap="md">
         <Stack gap={2}>
           <Title order={3} fz="lg">
@@ -125,8 +127,15 @@ export function InsuranceDetailPage() {
 
   return (
     <>
-      <Box style={{ color: 'white', background: 'linear-gradient(135deg, #0f275f, #1b45ae 60%, #2557d6)' }}>
-        <Container size={1160} py={{ base: 40, sm: 72 }}>
+      <Box
+        role="img"
+        aria-label={COVER_PHOTOS[guide.code].alt}
+        style={{
+          color: 'white',
+          background: `linear-gradient(100deg, rgba(10,28,72,0.94) 15%, rgba(18,50,130,0.78) 55%, rgba(37,87,214,0.35)), url(${COVER_PHOTOS[guide.code].banner}) ${COVER_PHOTOS[guide.code].position} / cover`,
+        }}
+      >
+        <Container size={1160} py={{ base: 48, sm: 96 }}>
           <Group wrap="nowrap" gap="xl" align="center">
             <ThemeIcon size={88} radius="xl" variant="white" color={style.color} className="float" visibleFrom="sm">
               <style.icon size={48} stroke={1.5} />
@@ -218,7 +227,15 @@ export function InsuranceDetailPage() {
               </Panel>
             </Reveal>
           </Stack>
-          <Estimator code={guide.code} />
+          <Stack gap="lg" style={{ position: 'sticky', top: 84, alignSelf: 'start' }}>
+            <Estimator code={guide.code} />
+            <CoverPhoto
+              src={COVER_PHOTOS[guide.code].side}
+              alt={COVER_PHOTOS[guide.code].alt}
+              height={280}
+              radius="var(--mantine-radius-lg)"
+            />
+          </Stack>
         </SimpleGrid>
 
         <Stack gap="md" mt={56}>

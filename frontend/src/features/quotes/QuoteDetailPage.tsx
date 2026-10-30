@@ -5,6 +5,8 @@ import { Link, useParams } from 'react-router-dom'
 
 import { getQuote } from '../../api/quotes'
 import type { QuoteSummary } from '../../api/schemas'
+import { COVER_PHOTOS } from '../insurance/photos'
+import { CoverPhoto } from '../shared/CoverPhoto'
 import { coverageStyle } from '../shared/coverage'
 import { CoverageBadge } from '../shared/CoverageBadge'
 import { DetailRow } from '../shared/DetailRow'
@@ -93,6 +95,15 @@ export function QuoteDetailPage() {
   const hasTerms = quote.policyTermYears != null
   return (
     <Stack maw={900}>
+      {COVER_PHOTOS[quote.coverageType] && (
+        <CoverPhoto
+          src={COVER_PHOTOS[quote.coverageType].banner}
+          alt={COVER_PHOTOS[quote.coverageType].alt}
+          height={130}
+          position={COVER_PHOTOS[quote.coverageType].position}
+          radius="var(--mantine-radius-lg)"
+        />
+      )}
       <PageHeader
         icon={IconFileText}
         eyebrow="Quote service"

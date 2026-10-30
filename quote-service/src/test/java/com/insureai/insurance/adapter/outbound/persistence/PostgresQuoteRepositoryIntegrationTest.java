@@ -52,7 +52,7 @@ class PostgresQuoteRepositoryIntegrationTest {
         .withPassword("test-only-insure-admin-password")
         .withInitScript("db/test-container-init.sql");
 
-    private static final String CUSTOMER_ID = "3b241101-e2bb-4255-8caf-4136c566a962";
+    private static final String CUSTOMER_ID = "10000001";
 
     @Autowired
     private QuoteRepositoryPort quoteRepository;
@@ -80,7 +80,7 @@ class PostgresQuoteRepositoryIntegrationTest {
 
     @Test
     void flywayMigratesFreshPostgresDatabase() {
-        assertEquals("5", flyway.info().current().getVersion().getVersion());
+        assertEquals("6", flyway.info().current().getVersion().getVersion());
         assertEquals(1, jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'policy_quote'",
             Integer.class
