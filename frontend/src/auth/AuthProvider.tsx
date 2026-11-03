@@ -19,6 +19,20 @@ async function createClient(): Promise<AuthClient> {
   return createOidcAuth(config)
 }
 
+// Tokens are kept in memory, so a page reload loses them. This marker holds no token; it only records that the
+// visitor was signed in, so a reload can go back to Keycloak (which signs them straight in while its session lasts).
+const SIGNED_IN_MARKER = 'insure.signedIn'
+
+function marker(action: 'get' | 'set' | 'clear'): boolean {
+  try {
+    if (action === 'set') window.localStorage.setItem(SIGNED_IN_MARKER, '1')
+    if (action === 'clear') window.localStorage.removeItem(SIGNED_IN_MARKER)
+    return action === 'get' && window.localStorage.getItem(SIGNED_IN_MARKER) === '1'
+  } catch {
+    return false
+  }
+}
+
 function currentPath(): string {
   return `${window.location.pathname}${window.location.search}`
 }
@@ -47,12 +61,19 @@ export function AuthProvider({ children, client: provided }: { children: ReactNo
           const result = await client.completeSignIn()
           window.history.replaceState(null, '', result.returnTo)
           signedIn = result.user
+          marker('set')
         } else {
           signedIn = await client.restore()
+          if (!signedIn && marker('get')) {
+            marker('clear')
+            await client.signIn(currentPath())
+            return
+          }
         }
         setUser(signedIn ?? undefined)
         setStatus(signedIn ? 'authenticated' : 'anonymous')
       } catch (error) {
+        marker('clear')
         setFailure(error instanceof Error ? error.message : 'Sign-in failed')
       }
     })()
@@ -63,7 +84,10 @@ export function AuthProvider({ children, client: provided }: { children: ReactNo
       status,
       user,
       signIn: async (returnTo = currentPath()) => clientRef.current?.signIn(returnTo),
-      signOut: async () => clientRef.current?.signOut(),
+      signOut: async () => {
+        marker('clear')
+        return clientRef.current?.signOut()
+      },
       getAccessToken: async () => clientRef.current?.getAccessToken() ?? null,
     }),
     [status, user],

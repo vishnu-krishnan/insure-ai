@@ -14,4 +14,10 @@ public interface QuoteRepositoryPort {
     List<PolicyQuote> findPage(String query, CoverageType coverageType, long offset, int limit);
 
     long count(String query, CoverageType coverageType);
+
+    List<PolicyQuote> findPageForCustomer(String customerId, long offset, int limit);
+
+    long countForCustomer(String customerId);
+
+    Optional<PolicyQuote> findByIdForCustomer(String quoteId, String customerId);
 }

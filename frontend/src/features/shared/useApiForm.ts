@@ -22,8 +22,9 @@ export function useApiForm<T extends FieldValues>(
   defaultValues: DefaultValues<T>,
   submit: (values: T) => Promise<void>,
   known: Record<string, string> = {},
+  mode: 'onSubmit' | 'onTouched' = 'onSubmit',
 ) {
-  const form = useForm<T>({ resolver: zodResolver(schema), defaultValues })
+  const form = useForm<T>({ resolver: zodResolver(schema), defaultValues, mode })
   const [formError, setFormError] = useState<ErrorSummary | null>(null)
   const inFlight = useRef(false)
 

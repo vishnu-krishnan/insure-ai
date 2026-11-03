@@ -69,7 +69,7 @@ class PostgresCustomerRepositoryIntegrationTest {
 
     @Test
     void appliesCustomerOwnedMigrationAndPersistsProfile() {
-        assertEquals("5", flyway.info().current().getVersion().getVersion());
+        assertEquals("7", flyway.info().current().getVersion().getVersion());
         CustomerProfile unsaved = profile("Alice Smith", "alice@example.test", "+14155552671");
 
         CustomerProfile saved = customerRepository.save(unsaved);
@@ -275,5 +275,75 @@ class PostgresCustomerRepositoryIntegrationTest {
             "4155552671",
             LocalDate.of(1985, 1, 1)
         ));
+    }
+
+    @Test
+    void linksAProfileToItsKeycloakSubjectAndFindsItThere() {
+        CustomerProfile saved = customerRepository.save(profile("Sub Owner", "sub.owner@example.test", "+14155553001"), "sub-owner");
+
+        assertEquals(saved.customerId(), customerRepository.findBySubject("sub-owner").orElseThrow().customerId());
+        assertTrue(customerRepository.findBySubject("someone-else").isEmpty());
+    }
+
+    @Test
+    void linkSubjectClaimsOnlyAnUnlinkedProfileOnce() {
+        CustomerProfile unlinked = customerRepository.save(profile("Claim Me", "claim.me@example.test", "+14155553002"));
+
+        assertTrue(customerRepository.linkSubject(unlinked.customerId(), "sub-claim"));
+        assertFalse(customerRepository.linkSubject(unlinked.customerId(), "sub-other"));
+        assertEquals(unlinked.customerId(), customerRepository.findBySubject("sub-claim").orElseThrow().customerId());
+    }
+
+    @Test
+    void aSubjectCanOwnOnlyOneProfile() {
+        customerRepository.save(profile("First Own", "first.own@example.test", "+14155553003"), "sub-single");
+        CustomerProfile second = customerRepository.save(profile("Second Own", "second.own@example.test", "+14155553004"));
+
+        assertFalse(customerRepository.linkSubject(second.customerId(), "sub-single"));
+    }
+
+    @Test
+    void updateChangesEditableFieldsButNeverTheEmailOrIds() {
+        CustomerProfile saved = customerRepository.save(profile("Old Name", "keep.email@example.test", "+14155553005"), "sub-update");
+        CustomerProfile edited = new CustomerProfile(
+            saved.customerId(), saved.customerNumber(), "New Name", "changed@example.test", "+14155553006",
+            LocalDate.of(1991, 2, 3), null, null, "Engineer", null, null, null, saved.createdAt(), saved.updatedAt());
+
+        CustomerProfile updated = customerRepository.update(edited);
+
+        assertEquals("New Name", updated.fullName());
+        assertEquals("+14155553006", updated.phone());
+        assertEquals("Engineer", updated.occupation());
+        assertEquals("keep.email@example.test", updated.email());
+        assertEquals(saved.customerNumber(), updated.customerNumber());
+    }
+
+    private static CustomerProfile withId(CustomerProfile base, String number) {
+        return new CustomerProfile(
+            base.customerId(), base.customerNumber(), base.fullName(), base.email(), base.phone(), base.dateOfBirth(),
+            base.gender(), base.maritalStatus(), base.occupation(), base.annualIncome(), base.address(), base.nominee(),
+            base.createdAt(), base.updatedAt(), new com.insureai.customer.domain.model.IdDocument(
+                com.insureai.customer.domain.model.IdType.PAN, number));
+    }
+
+    @Test
+    void persistsTheIdDocumentAndReadsItBack() {
+        CustomerProfile saved = customerRepository.save(
+            withId(profile("Id Holder", "id.holder@example.test", "+14155553007"), "ABCDE1234F"), "sub-id");
+
+        CustomerProfile found = customerRepository.findBySubject("sub-id").orElseThrow();
+
+        assertEquals(saved.customerId(), found.customerId());
+        assertEquals("ABCDE1234F", found.idDocument().number());
+        assertEquals(com.insureai.customer.domain.model.IdType.PAN, found.idDocument().type());
+    }
+
+    @Test
+    void oneIdDocumentBelongsToOneCustomer() {
+        customerRepository.save(withId(profile("First Id", "first.id@example.test", "+14155553008"), "FGHIJ5678K"));
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+            com.insureai.customer.domain.exception.DuplicateCustomerException.class,
+            () -> customerRepository.save(withId(profile("Second Id", "second.id@example.test", "+14155553009"), "FGHIJ5678K")));
     }
 }

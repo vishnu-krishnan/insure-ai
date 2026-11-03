@@ -4,7 +4,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -24,7 +23,11 @@ import tools.jackson.databind.ObjectMapper;
 @Configuration
 public class CustomerSecurityConfiguration {
     @Bean
-    SecurityFilterChain customerSecurityFilterChain(HttpSecurity http, ObjectMapper objectMapper) throws Exception {
+    SecurityFilterChain customerSecurityFilterChain(
+        HttpSecurity http,
+        ObjectMapper objectMapper,
+        @Value("${security.web-client-id:insure-ui}") String webClientId
+    ) throws Exception {
         ProblemDetailSecurityHandler problemHandler = new ProblemDetailSecurityHandler(objectMapper);
         return http
             .csrf(AbstractHttpConfigurer::disable)
@@ -32,13 +35,19 @@ public class CustomerSecurityConfiguration {
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers("/actuator/health").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/me")
+                    .access(TokenAccess.selfService("me:read"))
+                .requestMatchers(HttpMethod.POST, "/api/v1/me")
+                    .access(TokenAccess.selfService("me:write"))
+                .requestMatchers(HttpMethod.PUT, "/api/v1/me")
+                    .access(TokenAccess.selfService("me:write"))
                 .requestMatchers(HttpMethod.POST, "/api/v1/customers")
-                    .hasAuthority("SCOPE_customer:create")
+                    .access(TokenAccess.agentApi("customer:create", webClientId))
                 .requestMatchers(HttpMethod.GET, "/api/v1/customers/**")
-                    .hasAuthority("SCOPE_customer:read")
+                    .access(TokenAccess.agentApi("customer:read", webClientId))
                 .anyRequest().denyAll())
             .oauth2ResourceServer(resourceServer -> resourceServer
-                .jwt(Customizer.withDefaults())
+                .jwt(jwt -> jwt.jwtAuthenticationConverter(TokenAccess.converter()))
                 .authenticationEntryPoint(problemHandler)
                 .accessDeniedHandler(problemHandler))
             .build();

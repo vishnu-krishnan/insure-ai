@@ -142,10 +142,10 @@ describe('app routes', () => {
     expect(await screen.findByText('Access denied')).toBeInTheDocument()
   })
 
-  it('sends a customer from the home page to the customer area notice', async () => {
+  it('sends a customer from the home page to their account area', async () => {
     renderAt('/', customer)
 
-    expect(await screen.findByText(/customer area is not available yet/i)).toBeInTheDocument()
+    expect(await screen.findByRole('navigation', { name: 'My account' })).toBeInTheDocument()
   })
 
   it('sends an agent from the home page to the dashboard', async () => {
@@ -184,7 +184,7 @@ describe('app routes', () => {
     it('links to the calculator', async () => {
       renderAt('/', null)
 
-      const links = await screen.findAllByRole('link', { name: /calculator/i })
+      const links = await screen.findAllByRole('link', { name: /estimate your premium/i })
       expect(links[0]).toHaveAttribute('href', '/calculator')
     })
 
@@ -234,8 +234,9 @@ describe('app routes', () => {
     it('is reachable from the landing page cover cards', async () => {
       renderAt('/', null)
 
-      const link = await screen.findByRole('link', { name: /Health insurance/ })
-      expect(link).toHaveAttribute('href', '/insurance/health')
+      const links = await screen.findAllByRole('link', { name: /Health insurance/ })
+      expect(links.length).toBeGreaterThan(0)
+      links.forEach((link) => expect(link).toHaveAttribute('href', '/insurance/health'))
     })
   })
 

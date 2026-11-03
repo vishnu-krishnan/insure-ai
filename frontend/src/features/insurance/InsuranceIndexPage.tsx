@@ -12,13 +12,13 @@ import {
   ThemeIcon,
   Title,
 } from '@mantine/core'
-import { IconArrowRight, IconCheck } from '@tabler/icons-react'
+import { IconArrowRight } from '@tabler/icons-react'
 import { Link } from 'react-router-dom'
 
 import { Reveal } from '../../app/Reveal'
 import { CoverPhoto } from '../shared/CoverPhoto'
 import { coverageStyle } from '../shared/coverage'
-import { COVER_GUIDES, GUIDE_QUESTIONS } from './catalogue'
+import { COVER_GUIDES } from './catalogue'
 import { COVER_PHOTOS } from './photos'
 
 export function InsuranceIndexPage() {
@@ -119,35 +119,6 @@ export function InsuranceIndexPage() {
             <Text size="xs" c="dimmed">
               Premiums rise by 15% for customers over 60. Cover is offered from age 18 to 75. Figures are indicative.
             </Text>
-          </Stack>
-
-          <Stack gap="md">
-            <Title order={2} fz={{ base: 24, sm: 30 }}>
-              Which cover is right for me?
-            </Title>
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-              {GUIDE_QUESTIONS.map((item) => (
-                <Card key={item.slug} className="lift-soft" p="md">
-                  <Group wrap="nowrap" justify="space-between">
-                    <Group wrap="nowrap">
-                      <ThemeIcon radius="xl" size={30} color="teal" variant="light">
-                        <IconCheck size={16} stroke={3} />
-                      </ThemeIcon>
-                      <Text fw={500}>{item.question}</Text>
-                    </Group>
-                    <Anchor
-                      component={Link}
-                      to={`/insurance/${item.slug}`}
-                      fw={600}
-                      size="sm"
-                      style={{ whiteSpace: 'nowrap' }}
-                    >
-                      {item.answer}
-                    </Anchor>
-                  </Group>
-                </Card>
-              ))}
-            </SimpleGrid>
           </Stack>
         </Stack>
       </Container>

@@ -139,6 +139,20 @@ body {
   -webkit-backdrop-filter: blur(10px);
 }
 
+.mantine-Button-root.btn-on-dark {
+  --button-bg: #ffffff !important;
+  --button-hover: #e6eeff !important;
+  --button-color: var(--mantine-color-brand-9) !important;
+  --button-hover-color: var(--mantine-color-brand-9) !important;
+}
+
+.nav-link[data-active='true']::after {
+  transform: scaleX(1);
+}
+.nav-link[data-active='true'] {
+  color: var(--mantine-color-text) !important;
+}
+
 .nav-link {
   position: relative;
   text-decoration: none;
@@ -172,4 +186,109 @@ body {
     opacity: 1;
     transform: none;
   }
+}
+
+/* Fine line artwork on the white / tinted sections (light mode only). */
+[data-mantine-color-scheme='light'] .line-section {
+  background: #f6f9ff url(/images/lines-light.svg) center / cover no-repeat;
+}
+
+:root {
+  /* Shared deep-blue surface: home hero, closing banner, footer and the Keycloak login page. */
+  --insure-navy-gradient: radial-gradient(900px 600px at 12% 0%, rgba(60, 110, 230, 0.35), transparent 65%),
+    linear-gradient(160deg, #040c26 0%, #0a2063 50%, #123a9c 100%);
+}
+
+/* Home hero polish */
+.hero-accent {
+  background: linear-gradient(90deg, #cfe0ff 0%, #8fb0ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+
+/* Home page: highlight strip, headings, cards */
+.heading-bar {
+  width: 56px;
+  height: 4px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #2557d6, #6690fb);
+}
+.step-num {
+  background: linear-gradient(135deg, #2557d6, #6690fb);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  opacity: 0.55;
+}
+.lift:hover {
+  box-shadow: 0 22px 48px rgba(47, 102, 232, 0.2);
+}
+
+/* Hero photo: whole picture on the right, blended into the navy background. */
+.hero-photo-bg {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(52%, 700px);
+  /* Natural photo colours; a long fade melts its left edge into the navy. */
+  background: url(/images/side-life.jpg) center top / cover no-repeat;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.55) 30%, #000 60%);
+  mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.55) 30%, #000 60%);
+}
+
+.hero-title {
+  letter-spacing: -0.02em;
+  font-weight: 800;
+}
+.hero-stats {
+  padding-top: var(--mantine-spacing-lg);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  max-width: 480px;
+}
+.hero-stat + .hero-stat {
+  padding-left: var(--mantine-spacing-lg);
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+}
+.hero-stat-value {
+  font-size: 30px;
+  font-weight: 750;
+  line-height: 1.1;
+  color: #fff;
+}
+.hero-stat-label {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Customer area: stronger contrast and clearer controls on the pale page background. */
+:root[data-mantine-color-scheme='light'] .me-shell {
+  --mantine-color-dimmed: #46557a;
+  --mantine-color-default-border: #cdd6e8;
+  --mantine-color-placeholder: #7c89a8;
+}
+.me-shell .mantine-Card-root {
+  box-shadow: 0 2px 10px rgba(10, 30, 80, 0.07);
+}
+.me-shell .mantine-InputWrapper-label {
+  font-weight: 650;
+  font-size: var(--mantine-font-size-sm);
+  margin-bottom: 4px;
+}
+.me-shell .mantine-InputWrapper-description {
+  font-size: 13px;
+}
+.me-shell .mantine-Input-input {
+  height: 44px;
+  border-width: 1.5px;
+  background: white;
+}
+.me-shell .mantine-Input-input:focus,
+.me-shell .mantine-Input-input:focus-within {
+  border-color: var(--mantine-color-brand-6);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }

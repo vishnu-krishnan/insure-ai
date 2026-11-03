@@ -22,7 +22,6 @@ import { Link, useParams } from 'react-router-dom'
 import { Reveal } from '../../app/Reveal'
 import { useAuth } from '../../auth/useAuth'
 import { formatMoney } from '../quotes/format'
-import { CoverPhoto } from '../shared/CoverPhoto'
 import { coverageStyle } from '../shared/coverage'
 import { COVER_GUIDES, findGuide } from './catalogue'
 import { COVER_PHOTOS } from './photos'
@@ -229,12 +228,6 @@ export function InsuranceDetailPage() {
           </Stack>
           <Stack gap="lg" style={{ position: 'sticky', top: 84, alignSelf: 'start' }}>
             <Estimator code={guide.code} />
-            <CoverPhoto
-              src={COVER_PHOTOS[guide.code].side}
-              alt={COVER_PHOTOS[guide.code].alt}
-              height={280}
-              radius="var(--mantine-radius-lg)"
-            />
           </Stack>
         </SimpleGrid>
 

@@ -2,6 +2,7 @@ package com.insureai.insurance.adapter.inbound.security;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -46,7 +47,15 @@ class ProblemDetailSecurityHandler implements AuthenticationEntryPoint, AccessDe
         HttpServletResponse response,
         AuthenticationException exception
     ) throws IOException {
-        LOGGER.warn("Authentication failed for {} {}: {}", request.getMethod(), request.getRequestURI(), exception.getMessage());
+        LOGGER.atWarn()
+            .setMessage("Authentication failed for {} {}: {}")
+            .addArgument(request.getMethod())
+            .addArgument(request.getRequestURI())
+            .addArgument(exception.getMessage())
+            .addKeyValue("event.action", "authentication.failed")
+            .addKeyValue("http.request.method", request.getMethod())
+            .addKeyValue("url.path", request.getRequestURI())
+            .log();
         bearerEntryPoint.commence(request, response, exception);
         write(
             request,
@@ -83,16 +92,30 @@ class ProblemDetailSecurityHandler implements AuthenticationEntryPoint, AccessDe
     private static void logAccessDenied(HttpServletRequest request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication instanceof JwtAuthenticationToken jwt) {
-            LOGGER.warn(
-                "Access denied for {} {}: client={} authorities={}",
-                request.getMethod(),
-                request.getRequestURI(),
-                jwt.getToken().getClaimAsString("azp"),
-                jwt.getAuthorities().stream().map(GrantedAuthority::getAuthority)
-                    .filter(authority -> authority.startsWith("SCOPE_")).sorted().toList()
-            );
+            String clientId = jwt.getToken().getClaimAsString("azp");
+            List<String> scopes = jwt.getAuthorities().stream().map(GrantedAuthority::getAuthority)
+                .filter(authority -> authority.startsWith("SCOPE_")).sorted().toList();
+            LOGGER.atWarn()
+                .setMessage("Access denied for {} {}: client={} authorities={}")
+                .addArgument(request.getMethod())
+                .addArgument(request.getRequestURI())
+                .addArgument(clientId)
+                .addArgument(scopes)
+                .addKeyValue("event.action", "access.denied")
+                .addKeyValue("http.request.method", request.getMethod())
+                .addKeyValue("url.path", request.getRequestURI())
+                .addKeyValue("clientId", clientId)
+                .addKeyValue("scopes", scopes)
+                .log();
         } else {
-            LOGGER.warn("Access denied for {} {}", request.getMethod(), request.getRequestURI());
+            LOGGER.atWarn()
+                .setMessage("Access denied for {} {}")
+                .addArgument(request.getMethod())
+                .addArgument(request.getRequestURI())
+                .addKeyValue("event.action", "access.denied")
+                .addKeyValue("http.request.method", request.getMethod())
+                .addKeyValue("url.path", request.getRequestURI())
+                .log();
         }
     }
 

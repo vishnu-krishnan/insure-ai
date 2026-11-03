@@ -11,6 +11,8 @@ export default defineConfig({
     port: 3174,
     strictPort: true,
     proxy: {
+      '/api/v1/me/quotes': quoteService,
+      '/api/v1/me': customerService,
       '/api/v1/customers': customerService,
       '/api/v1/quotes': quoteService,
       '/api/v2/quotes': quoteService,

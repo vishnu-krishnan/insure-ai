@@ -1,5 +1,7 @@
 export interface AuthUser {
   name: string
+  /** The person's full name from the sign-up details, when the account has one. */
+  fullName?: string
   roles: string[]
 }
 

@@ -19,6 +19,8 @@ import com.insureai.customer.domain.exception.DuplicateCustomerException;
 import com.insureai.customer.domain.model.Address;
 import com.insureai.customer.domain.model.CustomerProfile;
 import com.insureai.customer.domain.model.Gender;
+import com.insureai.customer.domain.model.IdDocument;
+import com.insureai.customer.domain.model.IdType;
 import com.insureai.customer.domain.model.MaritalStatus;
 import com.insureai.customer.domain.model.Nominee;
 
@@ -29,24 +31,46 @@ public class PostgresCustomerRepository implements CustomerRepositoryPort {
             full_name, email, phone, date_of_birth,
             gender, marital_status, occupation, annual_income,
             address_line1, address_line2, address_city, address_state, address_postal_code, address_country,
-            nominee_name, nominee_relationship
+            nominee_name, nominee_relationship, keycloak_subject, id_type, id_number
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         RETURNING customer_id, customer_number, annual_income, created_at, updated_at
         """;
+    private static final String UPDATE_CUSTOMER = """
+        UPDATE customer_profile SET
+            full_name = ?, phone = ?, date_of_birth = ?,
+            gender = ?, marital_status = ?, occupation = ?, annual_income = ?,
+            address_line1 = ?, address_line2 = ?, address_city = ?, address_state = ?,
+            address_postal_code = ?, address_country = ?,
+            nominee_name = ?, nominee_relationship = ?, id_type = ?, id_number = ?, updated_at = now()
+        WHERE customer_id = ?
+        """;
+    private static final String LINK_SUBJECT =
+        "UPDATE customer_profile SET keycloak_subject = ?, updated_at = now() WHERE customer_id = ? AND keycloak_subject IS NULL";
+    private static final String PHONE_EXISTS_EXCLUDING =
+        "SELECT EXISTS (SELECT 1 FROM customer_profile WHERE phone = ? AND customer_id <> ?)";
     private static final String EMAIL_EXISTS = "SELECT EXISTS (SELECT 1 FROM customer_profile WHERE lower(email) = lower(?))";
     private static final String PHONE_EXISTS = "SELECT EXISTS (SELECT 1 FROM customer_profile WHERE phone = ?)";
     private static final String EMAIL_UNIQUE_INDEX = "customer_profile_email_unique";
     private static final String PHONE_UNIQUE_INDEX = "customer_profile_phone_unique";
+    private static final String ID_UNIQUE_INDEX = "customer_profile_id_document_unique";
     private static final String CUSTOMER_COLUMNS = """
         customer_id, customer_number, full_name, email, phone, date_of_birth,
         gender, marital_status, occupation, annual_income,
         address_line1, address_line2, address_city, address_state, address_postal_code, address_country,
-        nominee_name, nominee_relationship, created_at, updated_at
+        nominee_name, nominee_relationship, created_at, updated_at, id_type, id_number
         """;
     private static final String SELECT_CUSTOMER = "SELECT " + CUSTOMER_COLUMNS + """
         FROM customer_profile
         WHERE customer_id = ?
+        """;
+    private static final String SELECT_BY_SUBJECT = "SELECT " + CUSTOMER_COLUMNS + """
+        FROM customer_profile
+        WHERE keycloak_subject = ?
+        """;
+    private static final String SELECT_BY_EMAIL = "SELECT " + CUSTOMER_COLUMNS + """
+        FROM customer_profile
+        WHERE lower(email) = lower(?)
         """;
     private static final String SEARCH_FILTER = """
         WHERE lower(full_name) LIKE ? ESCAPE '\\'
@@ -75,8 +99,13 @@ public class PostgresCustomerRepository implements CustomerRepositoryPort {
 
     @Override
     public CustomerProfile save(CustomerProfile customer) {
+        return save(customer, null);
+    }
+
+    @Override
+    public CustomerProfile save(CustomerProfile customer, String subject) {
         try {
-            return insert(customer);
+            return insert(customer, subject);
         } catch (DuplicateKeyException exception) {
             String message = String.valueOf(exception.getMostSpecificCause().getMessage());
             if (message.contains(EMAIL_UNIQUE_INDEX)) {
@@ -84,6 +113,9 @@ public class PostgresCustomerRepository implements CustomerRepositoryPort {
             }
             if (message.contains(PHONE_UNIQUE_INDEX)) {
                 throw new DuplicateCustomerException("phone");
+            }
+            if (message.contains(ID_UNIQUE_INDEX)) {
+                throw new DuplicateCustomerException("idNumber");
             }
             throw exception;
         }
@@ -99,7 +131,7 @@ public class PostgresCustomerRepository implements CustomerRepositoryPort {
         return Boolean.TRUE.equals(jdbcTemplate.queryForObject(PHONE_EXISTS, Boolean.class, phone));
     }
 
-    private CustomerProfile insert(CustomerProfile customer) {
+    private CustomerProfile insert(CustomerProfile customer, String subject) {
         Address address = customer.address();
         Nominee nominee = customer.nominee();
         return jdbcTemplate.queryForObject(
@@ -118,7 +150,8 @@ public class PostgresCustomerRepository implements CustomerRepositoryPort {
                 customer.address(),
                 customer.nominee(),
                 instant(resultSet, "created_at"),
-                instant(resultSet, "updated_at")
+                instant(resultSet, "updated_at"),
+                customer.idDocument()
             ),
             customer.fullName(),
             customer.email(),
@@ -135,8 +168,68 @@ public class PostgresCustomerRepository implements CustomerRepositoryPort {
             address == null ? null : address.postalCode(),
             address == null ? null : address.country(),
             nominee == null ? null : nominee.name(),
-            nominee == null ? null : nominee.relationship()
+            nominee == null ? null : nominee.relationship(),
+            subject,
+            customer.idDocument() == null ? null : customer.idDocument().type().name(),
+            customer.idDocument() == null ? null : customer.idDocument().number()
         );
+    }
+
+    @Override
+    public CustomerProfile update(CustomerProfile customer) {
+        Address address = customer.address();
+        Nominee nominee = customer.nominee();
+        try {
+            jdbcTemplate.update(
+                UPDATE_CUSTOMER,
+                customer.fullName(),
+                customer.phone(),
+                customer.dateOfBirth(),
+                customer.gender() == null ? null : customer.gender().name(),
+                customer.maritalStatus() == null ? null : customer.maritalStatus().name(),
+                customer.occupation(),
+                customer.annualIncome(),
+                address == null ? null : address.line1(),
+                address == null ? null : address.line2(),
+                address == null ? null : address.city(),
+                address == null ? null : address.state(),
+                address == null ? null : address.postalCode(),
+                address == null ? null : address.country(),
+                nominee == null ? null : nominee.name(),
+                nominee == null ? null : nominee.relationship(),
+                customer.idDocument() == null ? null : customer.idDocument().type().name(),
+                customer.idDocument() == null ? null : customer.idDocument().number(),
+                customer.customerId()
+            );
+        } catch (DuplicateKeyException exception) {
+            String message = String.valueOf(exception.getMostSpecificCause().getMessage());
+            throw new DuplicateCustomerException(message.contains(ID_UNIQUE_INDEX) ? "idNumber" : "phone");
+        }
+        return findById(customer.customerId()).orElseThrow();
+    }
+
+    @Override
+    public Optional<CustomerProfile> findBySubject(String subject) {
+        return jdbcTemplate.query(SELECT_BY_SUBJECT, CUSTOMER_ROW_MAPPER, subject).stream().findFirst();
+    }
+
+    @Override
+    public Optional<CustomerProfile> findByEmail(String email) {
+        return jdbcTemplate.query(SELECT_BY_EMAIL, CUSTOMER_ROW_MAPPER, email).stream().findFirst();
+    }
+
+    @Override
+    public boolean linkSubject(String customerId, String subject) {
+        try {
+            return jdbcTemplate.update(LINK_SUBJECT, subject, customerId) == 1;
+        } catch (DuplicateKeyException exception) {
+            return false;
+        }
+    }
+
+    @Override
+    public boolean existsByPhoneExcluding(String phone, String customerId) {
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(PHONE_EXISTS_EXCLUDING, Boolean.class, phone, customerId));
     }
 
     @Override
@@ -179,6 +272,7 @@ public class PostgresCustomerRepository implements CustomerRepositoryPort {
         BigDecimal annualIncome = resultSet.getBigDecimal("annual_income");
         String addressLine1 = resultSet.getString("address_line1");
         String nomineeName = resultSet.getString("nominee_name");
+        String idType = resultSet.getString("id_type");
         return new CustomerProfile(
             resultSet.getString("customer_id"),
             resultSet.getString("customer_number"),
@@ -200,7 +294,8 @@ public class PostgresCustomerRepository implements CustomerRepositoryPort {
             ),
             nomineeName == null ? null : new Nominee(nomineeName, resultSet.getString("nominee_relationship")),
             instant(resultSet, "created_at"),
-            instant(resultSet, "updated_at")
+            instant(resultSet, "updated_at"),
+            idType == null ? null : new IdDocument(IdType.valueOf(idType), resultSet.getString("id_number"))
         );
     }
 

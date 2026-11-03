@@ -1,7 +1,7 @@
 import { Navigate, type RouteObject } from 'react-router-dom'
 
 import { RequireRole } from '../auth/RequireRole'
-import { CustomerAreaPlaceholder } from './pages/CustomerAreaPlaceholder'
+import { Component as MeArea } from '../features/me/routes'
 import { Dashboard } from './pages/Dashboard'
 import { ErrorFallback } from './pages/ErrorFallback'
 import { Home } from './pages/Home'
@@ -54,7 +54,7 @@ export function createAppRoutes(extra: RouteObject[] = []): RouteObject[] {
           path: '/me/*',
           element: (
             <RequireRole role="customer">
-              <CustomerAreaPlaceholder />
+              <MeArea />
             </RequireRole>
           ),
         },

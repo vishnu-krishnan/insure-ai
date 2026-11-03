@@ -20,9 +20,22 @@ public record CustomerResponseDto(
     AddressDto address,
     NomineeDto nominee,
     Instant createdAt,
-    Instant updatedAt
+    Instant updatedAt,
+    String idType,
+    String idNumber,
+    boolean profileComplete
 ) {
+    /** For agents and other services: the ID type is shown but the number is masked. */
     public static CustomerResponseDto fromDomain(CustomerProfile customer) {
+        return build(customer, false);
+    }
+
+    /** For the signed-in customer looking at their own profile: the whole ID number. */
+    public static CustomerResponseDto forOwner(CustomerProfile customer) {
+        return build(customer, true);
+    }
+
+    private static CustomerResponseDto build(CustomerProfile customer, boolean fullIdNumber) {
         return new CustomerResponseDto(
             customer.customerId(),
             customer.customerNumber(),
@@ -37,7 +50,11 @@ public record CustomerResponseDto(
             AddressDto.fromDomain(customer.address()),
             NomineeDto.fromDomain(customer.nominee()),
             customer.createdAt(),
-            customer.updatedAt()
+            customer.updatedAt(),
+            customer.idDocument() == null ? null : customer.idDocument().type().name(),
+            customer.idDocument() == null ? null
+                : fullIdNumber ? customer.idDocument().number() : customer.idDocument().masked(),
+            customer.isComplete()
         );
     }
 }

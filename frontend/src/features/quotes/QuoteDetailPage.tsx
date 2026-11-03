@@ -1,8 +1,9 @@
-import { Alert, Anchor, Badge, Card, Divider, Group, Loader, SimpleGrid, Stack, Text } from '@mantine/core'
-import { IconFileText } from '@tabler/icons-react'
+import { Alert, Anchor, Badge, Box, Button, Card, Divider, Group, Loader, SimpleGrid, Stack, Text } from '@mantine/core'
+import { IconArrowLeft, IconFileText } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 
+import { getMyQuote } from '../../api/me'
 import { getQuote } from '../../api/quotes'
 import type { QuoteSummary } from '../../api/schemas'
 import { COVER_PHOTOS } from '../insurance/photos'
@@ -70,9 +71,80 @@ function Premium({ quote }: { quote: QuoteSummary }) {
   )
 }
 
-export function QuoteDetailPage() {
+function MineHero({ quote, backTo }: { quote: QuoteSummary; backTo: string }) {
+  const photo = COVER_PHOTOS[quote.coverageType]
+  const style = coverageStyle(quote.coverageType)
+  return (
+    <Stack gap="md">
+      <Button
+        component={Link}
+        to={backTo}
+        variant="subtle"
+        size="compact-md"
+        leftSection={<IconArrowLeft size={16} />}
+        w="fit-content"
+      >
+        All quotes
+      </Button>
+      <Card p={0} radius="xl" style={{ overflow: 'hidden', border: 'none', background: 'var(--insure-navy-gradient)' }}>
+        <Box pos="relative">
+          {photo && (
+            <Box h={{ base: 120, sm: 150 }} style={{ overflow: 'hidden' }}>
+              <img
+                src={photo.banner}
+                alt={photo.alt}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  objectPosition: photo.position,
+                  display: 'block',
+                }}
+              />
+              <Box
+                pos="absolute"
+                inset={0}
+                style={{ background: 'linear-gradient(180deg, rgba(4,12,38,0.1), rgba(4,12,38,0.85))' }}
+              />
+            </Box>
+          )}
+        </Box>
+        <Group justify="space-between" align="flex-end" p={{ base: 'lg', sm: 'xl' }} gap="lg">
+          <Stack gap={4}>
+            <Group gap="sm">
+              <Text c="white" opacity={0.8} size="sm" fw={650} tt="uppercase" style={{ letterSpacing: 1 }}>
+                {style.label} cover
+              </Text>
+              {quote.status && <Status status={quote.status} />}
+            </Group>
+            <Text c="white" fw={800} fz={{ base: 26, sm: 32 }} lh={1.15}>
+              Quote {quote.quoteNumber}
+            </Text>
+            <Text c="white" opacity={0.8}>
+              Cover of {formatMoney(quote.coverageAmount)}
+            </Text>
+          </Stack>
+          <Stack gap={0} align="flex-end">
+            <Text c="white" fw={800} fz={{ base: 30, sm: 40 }} lh={1.1}>
+              {formatMoney(quote.annualPremium)}
+            </Text>
+            <Text c="white" opacity={0.8} size="sm">
+              per year · {formatMoney(quote.monthlyPremium)} a month
+            </Text>
+          </Stack>
+        </Group>
+      </Card>
+    </Stack>
+  )
+}
+
+export function QuoteDetailPage({ mine = false }: { mine?: boolean } = {}) {
   const { quoteId = '' } = useParams()
-  const query = useQuery({ queryKey: ['quote', quoteId], queryFn: () => getQuote(quoteId) })
+  const backTo = mine ? '/me/quotes' : '/agent/quotes'
+  const query = useQuery({
+    queryKey: [mine ? 'my-quote' : 'quote', quoteId],
+    queryFn: () => (mine ? getMyQuote(quoteId) : getQuote(quoteId)),
+  })
 
   if (query.isPending) {
     return <Loader aria-label="Loading quote" />
@@ -84,7 +156,7 @@ export function QuoteDetailPage() {
         <Alert color="red" title={summary.message}>
           {summary.correlationId && <Text size="xs">Reference: {summary.correlationId}</Text>}
         </Alert>
-        <Anchor component={Link} to="/agent/quotes">
+        <Anchor component={Link} to={backTo}>
           Back to quotes
         </Anchor>
       </Stack>
@@ -94,8 +166,9 @@ export function QuoteDetailPage() {
   const quote = query.data
   const hasTerms = quote.policyTermYears != null
   return (
-    <Stack maw={900}>
-      {COVER_PHOTOS[quote.coverageType] && (
+    <Stack maw={mine ? undefined : 900} gap={mine ? 'xl' : undefined}>
+      {mine && <MineHero quote={quote} backTo={backTo} />}
+      {!mine && COVER_PHOTOS[quote.coverageType] && (
         <CoverPhoto
           src={COVER_PHOTOS[quote.coverageType].banner}
           alt={COVER_PHOTOS[quote.coverageType].alt}
@@ -104,17 +177,19 @@ export function QuoteDetailPage() {
           radius="var(--mantine-radius-lg)"
         />
       )}
-      <PageHeader
-        icon={IconFileText}
-        eyebrow="Quote service"
-        title={`Quote ${quote.quoteNumber}`}
-        actions={
-          <Group gap="sm">
-            {quote.status && <Status status={quote.status} />}
-            <RefLabel label="Full ID" id={quote.quoteId} />
-          </Group>
-        }
-      />
+      {!mine && (
+        <PageHeader
+          icon={IconFileText}
+          eyebrow="Quote service"
+          title={`Quote ${quote.quoteNumber}`}
+          actions={
+            <Group gap="sm">
+              {quote.status && <Status status={quote.status} />}
+              <RefLabel label="Full ID" id={quote.quoteId} />
+            </Group>
+          }
+        />
+      )}
       <SimpleGrid cols={{ base: 1, md: 2 }}>
         <Section title="Cover">
           <DetailRow label="Customer" value={quote.customerName} />
@@ -154,11 +229,13 @@ export function QuoteDetailPage() {
           </Section>
         )}
       </SimpleGrid>
-      <Group>
-        <Anchor component={Link} to="/agent/quotes">
-          Back to quotes
-        </Anchor>
-      </Group>
+      {!mine && (
+        <Group>
+          <Anchor component={Link} to={backTo}>
+            Back to quotes
+          </Anchor>
+        </Group>
+      )}
     </Stack>
   )
 }

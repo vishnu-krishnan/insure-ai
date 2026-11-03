@@ -4,7 +4,7 @@ public class DuplicateCustomerException extends RuntimeException {
     private final String field;
 
     public DuplicateCustomerException(String field) {
-        super("A customer with this " + ("phone".equals(field) ? "phone number" : field) + " already exists");
+        super("A customer with this " + ("phone".equals(field) ? "phone number" : "idNumber".equals(field) ? "ID number" : field) + " already exists");
         this.field = field;
     }
 

@@ -1,8 +1,23 @@
-import { Box, Button, Card, Group, NativeSelect, SimpleGrid, Stack, Text, TextInput, ThemeIcon } from '@mantine/core'
-import { IconFilePlus } from '@tabler/icons-react'
-import { useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import {
+  Badge,
+  Loader,
+  Box,
+  Button,
+  Card,
+  Group,
+  NativeSelect,
+  SimpleGrid,
+  Stack,
+  Text,
+  TextInput,
+  ThemeIcon,
+  UnstyledButton,
+} from '@mantine/core'
+import { IconArrowLeft, IconCheck, IconFilePlus, IconUser } from '@tabler/icons-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
+import { createMyQuote, getMyProfile } from '../../api/me'
 import { createQuote } from '../../api/quotes'
 import {
   COVERAGE_TYPES,
@@ -12,6 +27,10 @@ import {
   type CustomerQuoteRequest,
 } from '../../api/schemas'
 import { COVER_GUIDES } from '../insurance/catalogue'
+import { estimatePremium } from '../insurance/estimate'
+import { MeHeader } from '../me/MeHeader'
+import { completeness, isProfileComplete } from '../me/profileStatus'
+import { formatMoney } from './format'
 import { COVER_PHOTOS } from '../insurance/photos'
 import { CoverPhoto } from '../shared/CoverPhoto'
 import { coverageStyle } from '../shared/coverage'
@@ -28,25 +47,72 @@ const KNOWN_ERRORS = {
   CUSTOMER_SERVICE_TIMEOUT: 'The customer service is not responding. Try again in a moment.',
 }
 
-export function QuoteCreatePage({ type: fixedType }: { type?: string } = {}) {
+// The shared schema wants a customer ID; for a customer's own quote this value is never sent.
+const SELF_CUSTOMER_ID = '00000000'
+
+const SELF_ERRORS = {
+  PROFILE_REQUIRED: 'Complete your profile first, then request your quote.',
+}
+
+function ageOn(dateOfBirth: string): number {
+  const born = new Date(dateOfBirth)
+  const now = new Date()
+  let age = now.getFullYear() - born.getFullYear()
+  if (now.getMonth() < born.getMonth() || (now.getMonth() === born.getMonth() && now.getDate() < born.getDate())) {
+    age -= 1
+  }
+  return age
+}
+
+function StepTitle({ n, children }: { n: number; children: string }) {
+  return (
+    <Group gap="sm" mt="xs">
+      <ThemeIcon size={26} radius="xl" variant="filled" color="brand">
+        <Text size="xs" fw={700} c="white">
+          {n}
+        </Text>
+      </ThemeIcon>
+      <Text fw={700} fz="lg">
+        {children}
+      </Text>
+    </Group>
+  )
+}
+
+// With mine set, the quote is for the signed-in customer: no customer is chosen and the server takes it from the token.
+export function QuoteCreatePage({ type: fixedType, mine = false }: { type?: string; mine?: boolean } = {}) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [params] = useSearchParams()
+  const requestedType = COVER_GUIDES.find((item) => item.code === params.get('type'))?.code
   const { form, onSubmit, formError, isSubmitting } = useApiForm<CustomerQuoteRequest>(
     customerQuoteRequestSchema,
     fixedType
       ? {
           ...emptyQuoteForm,
+          ...(mine ? { customerId: SELF_CUSTOMER_ID } : {}),
           coverageType: fixedType as CustomerQuoteRequest['coverageType'],
           details: emptyDetails(fixedType),
         }
-      : emptyQuoteForm,
+      : mine
+        ? {
+            ...emptyQuoteForm,
+            customerId: SELF_CUSTOMER_ID,
+            ...(requestedType ? { coverageType: requestedType } : {}),
+          }
+        : emptyQuoteForm,
     async (values) => {
+      if (mine) {
+        const created = await createMyQuote(values)
+        await queryClient.invalidateQueries({ queryKey: ['my-quotes'] })
+        void navigate(`/me/quotes/${created.quoteId}`)
+        return
+      }
       const created = await createQuote(values)
       await queryClient.invalidateQueries({ queryKey: ['quotes'] })
       void navigate(`/agent/quotes/${created.quoteId}`)
     },
-    KNOWN_ERRORS,
+    mine ? { ...KNOWN_ERRORS, ...SELF_ERRORS } : KNOWN_ERRORS,
   )
   const {
     register,
@@ -58,26 +124,133 @@ export function QuoteCreatePage({ type: fixedType }: { type?: string } = {}) {
   const guide = COVER_GUIDES.find((item) => item.code === type)
   const style = coverageStyle(type)
   const CoverIcon = style.icon
+  const profile = useQuery({ queryKey: ['my-profile'], queryFn: getMyProfile, enabled: mine })
+  const coverAmount = Number(watch('coverageAmount'))
+  const estimate = mine && profile.data ? estimatePremium(type, coverAmount, ageOn(profile.data.dateOfBirth)) : null
+
+  if (mine && profile.isPending) {
+    return <Loader aria-label="Loading your profile" />
+  }
+  if (mine && !isProfileComplete(profile.data)) {
+    const percent = profile.data ? completeness(profile.data) : 0
+    return (
+      <Stack gap="xl">
+        <MeHeader eyebrow="My quotes" title="Get a quote" />
+        <Card p={{ base: 'lg', sm: 40 }} radius="xl">
+          <Stack align="center" gap="md" ta="center" maw={520} mx="auto">
+            <ThemeIcon size={64} radius="xl" variant="light" color="brand">
+              <IconUser size={34} stroke={1.5} />
+            </ThemeIcon>
+            <Text fw={800} fz={24}>
+              Complete your profile first
+            </Text>
+            <Text c="dimmed">
+              We price your cover from your profile, so every section needs to be filled in before you can request a
+              quote. Your profile is {percent}% complete.
+            </Text>
+            <Button component={Link} to="/me/profile" size="md">
+              {profile.data ? 'Finish my profile' : 'Complete my profile'}
+            </Button>
+          </Stack>
+        </Card>
+      </Stack>
+    )
+  }
 
   return (
     <form onSubmit={onSubmit} noValidate>
       <Stack>
-        <PageHeader
-          icon={IconFilePlus}
-          eyebrow="Quote service"
-          title={fixedType ? `New ${coverageStyle(fixedType).label.toLowerCase()} quote` : 'New quote'}
-          description="Find the customer, enter the cover details and the premium is worked out when you save."
-        />
+        {mine ? (
+          <Stack gap="xs">
+            <Button
+              component={Link}
+              to="/me/quotes"
+              variant="subtle"
+              size="compact-md"
+              leftSection={<IconArrowLeft size={16} />}
+              w="fit-content"
+            >
+              My quotes
+            </Button>
+            <MeHeader
+              eyebrow="My quotes"
+              title="Get a quote"
+              description="Choose your cover, tell us how much you need and see your premium straight away."
+            />
+          </Stack>
+        ) : (
+          <PageHeader
+            icon={IconFilePlus}
+            eyebrow={mine ? 'My quotes' : 'Quote service'}
+            title={fixedType ? `New ${coverageStyle(fixedType).label.toLowerCase()} quote` : 'New quote'}
+            description={
+              mine
+                ? 'Choose your cover and the premium is worked out when you save.'
+                : 'Find the customer, enter the cover details and the premium is worked out when you save.'
+            }
+          />
+        )}
         <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg" style={{ alignItems: 'start' }}>
           <Card p={{ base: 'md', sm: 'xl' }} style={{ gridColumn: 'span 2' }}>
             <Stack>
               <FormErrors error={formError} />
-              <CustomerPicker
-                initialId={params.get('customerId') ?? ''}
-                error={errors.customerId?.message}
-                onChange={(customer) => setValue('customerId', customer?.customerId ?? '', { shouldValidate: false })}
-              />
-              {!fixedType && (
+              {!mine && (
+                <CustomerPicker
+                  initialId={params.get('customerId') ?? ''}
+                  error={errors.customerId?.message}
+                  onChange={(customer) => setValue('customerId', customer?.customerId ?? '', { shouldValidate: false })}
+                />
+              )}
+              {mine && !fixedType && (
+                <>
+                  <StepTitle n={1}>Choose your cover</StepTitle>
+                  <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
+                    {COVER_GUIDES.map((guide) => {
+                      const selected = guide.code === type
+                      const Glyph = coverageStyle(guide.code).icon
+                      return (
+                        <UnstyledButton
+                          key={guide.code}
+                          type="button"
+                          aria-pressed={selected}
+                          aria-label={guide.name}
+                          onClick={() => setValue('coverageType', guide.code, { shouldValidate: false })}
+                          p="md"
+                          style={{
+                            borderRadius: 'var(--mantine-radius-lg)',
+                            border: `2px solid ${selected ? 'var(--mantine-color-brand-6)' : 'var(--mantine-color-default-border)'}`,
+                            background: selected
+                              ? 'light-dark(var(--mantine-color-brand-0), var(--mantine-color-dark-6))'
+                              : 'transparent',
+                            position: 'relative',
+                            textAlign: 'center',
+                          }}
+                        >
+                          {selected && (
+                            <ThemeIcon size={20} radius="xl" color="brand" pos="absolute" top={8} right={8}>
+                              <IconCheck size={13} />
+                            </ThemeIcon>
+                          )}
+                          <ThemeIcon
+                            size={44}
+                            radius="md"
+                            variant={selected ? 'filled' : 'light'}
+                            color="brand"
+                            mx="auto"
+                          >
+                            <Glyph size={24} stroke={1.6} />
+                          </ThemeIcon>
+                          <Text fw={650} mt="xs" size="sm">
+                            {coverageStyle(guide.code).label}
+                          </Text>
+                        </UnstyledButton>
+                      )
+                    })}
+                  </SimpleGrid>
+                  <StepTitle n={2}>How much cover?</StepTitle>
+                </>
+              )}
+              {!mine && !fixedType && (
                 <NativeSelect
                   label="Coverage type"
                   data={[...COVERAGE_TYPES]}
@@ -123,9 +296,13 @@ export function QuoteCreatePage({ type: fixedType }: { type?: string } = {}) {
                   </SimpleGrid>
                 </>
               )}
-              <Text fw={650} mt="xs">
-                Policy terms
-              </Text>
+              {mine ? (
+                <StepTitle n={3}>Policy terms</StepTitle>
+              ) : (
+                <Text fw={650} mt="xs">
+                  Policy terms
+                </Text>
+              )}
               <SimpleGrid cols={{ base: 1, sm: 2 }}>
                 <TextInput
                   label="Policy term (years)"
@@ -165,8 +342,8 @@ export function QuoteCreatePage({ type: fixedType }: { type?: string } = {}) {
                 />
               </SimpleGrid>
               <Group justify="flex-end" mt="xs">
-                <Button type="submit" loading={isSubmitting}>
-                  Create quote
+                <Button type="submit" size={mine ? 'md' : 'sm'} loading={isSubmitting}>
+                  {mine ? 'Get my quote' : 'Create quote'}
                 </Button>
               </Group>
             </Stack>
@@ -203,6 +380,30 @@ export function QuoteCreatePage({ type: fixedType }: { type?: string } = {}) {
                     <Text size="sm">{guide.premiumBasis}</Text>
                   </Box>
                 </>
+              )}
+              {estimate && (
+                <Box
+                  p="md"
+                  style={{
+                    borderRadius: 'var(--mantine-radius-md)',
+                    background: 'var(--insure-navy-gradient)',
+                    color: 'white',
+                  }}
+                >
+                  <Badge variant="white" size="xs" mb={6}>
+                    Estimate
+                  </Badge>
+                  <Text fw={800} fz={26} lh={1.1} c="white">
+                    {formatMoney(estimate.annual)}
+                    <Text span size="sm" fw={500} c="white" opacity={0.8}>
+                      {' '}
+                      / year
+                    </Text>
+                  </Text>
+                  <Text size="xs" c="white" opacity={0.8}>
+                    About {formatMoney(estimate.monthly)} a month before tax. Your saved quote is the final figure.
+                  </Text>
+                </Box>
               )}
               <Text size="xs" c="dimmed">
                 Age 18 to 75 at the time of the quote. Tax is added to the premium you see after saving.

@@ -14,7 +14,7 @@ import {
   Title,
 } from '@mantine/core'
 import {
-  IconCalculator,
+  IconArrowRight,
   IconCheck,
   IconFileSearch,
   IconId,
@@ -28,7 +28,7 @@ import { Link } from 'react-router-dom'
 
 import { useAuth } from '../../auth/useAuth'
 import { Reveal } from '../Reveal'
-import { AutoArt, HealthArt, HeroScene, HomeArt, LifeArt } from './Art'
+import { AutoArt, HealthArt, HomeArt, LifeArt } from './Art'
 import { CoverPhoto } from '../../features/shared/CoverPhoto'
 import { PhotoSlot } from './PhotoSlot'
 
@@ -79,6 +79,8 @@ const covers: {
   },
 ]
 
+const coverAccents = ['brand', 'brand', 'brand', 'brand']
+
 const strengths = [
   {
     icon: IconUserPlus,
@@ -95,13 +97,29 @@ const strengths = [
     title: 'Find anything fast',
     text: 'Search customers and quotes by name, ID, email, phone or cover.',
   },
-  { icon: IconId, title: 'Readable IDs', text: 'Every customer and quote has an ID such as CUS-000001 or QT-000001.' },
+  {
+    icon: IconId,
+    title: 'Readable IDs',
+    text: 'Every customer and quote has an ID such as CUS-000001 or QT-000001.',
+  },
 ]
 
 const steps = [
-  { icon: IconUsers, title: 'Register the customer', text: 'Add name, contact details and date of birth.' },
-  { icon: IconFileSearch, title: 'Choose the cover', text: 'Pick Auto, Home, Life or Health and the cover amount.' },
-  { icon: IconCheck, title: 'Share the quote', text: 'The premium is calculated and saved with its own ID.' },
+  {
+    icon: IconUsers,
+    title: 'Register the customer',
+    text: 'Add name, contact details and date of birth.',
+  },
+  {
+    icon: IconFileSearch,
+    title: 'Choose the cover',
+    text: 'Pick Auto, Home, Life or Health and the cover amount.',
+  },
+  {
+    icon: IconCheck,
+    title: 'Share the quote',
+    text: 'The premium is calculated and saved with its own ID.',
+  },
 ]
 
 const faqs = [
@@ -125,7 +143,11 @@ const faqs = [
 
 function Section({ id, children, tint = false }: { id?: string; children: ReactNode; tint?: boolean }) {
   return (
-    <Box id={id} py={{ base: 48, sm: 80 }} bg={tint ? 'light-dark(#eef3fb, var(--mantine-color-dark-7))' : undefined}>
+    <Box
+      id={id}
+      py={{ base: 48, sm: 80 }}
+      bg={tint ? 'light-dark(rgba(232, 239, 252, 0.72), var(--mantine-color-dark-7))' : undefined}
+    >
       <Container size={1160}>{children}</Container>
     </Box>
   )
@@ -140,6 +162,7 @@ function Heading({ eyebrow, title, text }: { eyebrow: string; title: string; tex
       <Title order={2} fz={{ base: 26, sm: 36 }} maw={680}>
         {title}
       </Title>
+      <Box className="heading-bar" />
       {text && (
         <Text c="dimmed" maw={620} fz={{ base: 'sm', sm: 'md' }}>
           {text}
@@ -157,298 +180,267 @@ export function LandingPage() {
       <Box
         style={{
           color: 'white',
-          background: 'linear-gradient(135deg, #0f275f 0%, #1b45ae 55%, #2557d6 100%)',
+          position: 'relative',
+          background: 'var(--insure-navy-gradient)',
           overflow: 'hidden',
         }}
       >
-        <Container size={1160} py={{ base: 48, sm: 88 }}>
+        <Box visibleFrom="md" className="hero-photo-bg" />
+        <Container size={1160} py={{ base: 64, sm: 128 }} style={{ position: 'relative', zIndex: 1 }}>
           <Group justify="space-between" wrap="nowrap" gap={48}>
-            <Stack gap="lg" maw={560}>
-              <Badge variant="white" color="brand" size="lg" w="fit-content">
-                Auto, Home, Life and Health
-              </Badge>
-              <Title order={1} c="white" fz={{ base: 34, sm: 52 }} lh={1.1}>
-                Insurance that stays clear and simple
-              </Title>
-              <Text c="white" opacity={0.9} fz={{ base: 'md', sm: 'lg' }}>
-                Register customers, price cover and find any quote in seconds. Everything is kept together, with IDs you
-                can read out over the phone.
-              </Text>
+            <Stack gap="xl" maw={600}>
+              <Stack gap="md">
+                <Title order={1} c="white" fz={{ base: 36, sm: 58 }} lh={1.05} className="hero-title">
+                  Insurance that stays <span className="hero-accent">clear and simple</span>
+                </Title>
+                <Text c="white" opacity={0.88} fz={{ base: 'md', sm: 20 }} lh={1.55} maw={540}>
+                  Register customers, price cover and find any quote in seconds. Everything is kept together, with IDs
+                  you can read out over the phone.
+                </Text>
+              </Stack>
               <Group>
-                <Button size="lg" color="white" c="brand.9" onClick={() => void signIn('/')}>
-                  Agent sign in
-                </Button>
-                <Button size="lg" variant="outline" color="white" component={Link} to="/calculator">
-                  Try the calculator
+                <Button
+                  size="xl"
+                  className="btn-on-dark"
+                  component={Link}
+                  to="/calculator"
+                  rightSection={<IconArrowRight size={20} />}
+                >
+                  Estimate your premium
                 </Button>
               </Group>
-              <Group gap="xl" mt="sm">
+              <SimpleGrid cols={3} spacing="lg" className="hero-stats">
                 {[
                   ['4', 'cover types'],
                   ['1 step', 'to a quote'],
-                  ['18 to 75', 'customer ages'],
+                  ['18–75', 'customer ages'],
                 ].map(([value, label]) => (
-                  <Stack key={label} gap={0}>
-                    <Text fw={700} fz={24} c="white">
-                      {value}
-                    </Text>
-                    <Text size="sm" c="white" opacity={0.8}>
-                      {label}
-                    </Text>
+                  <Stack key={label} gap={2} className="hero-stat">
+                    <Text className="hero-stat-value">{value}</Text>
+                    <Text className="hero-stat-label">{label}</Text>
                   </Stack>
                 ))}
-              </Group>
+              </SimpleGrid>
             </Stack>
-            <Box visibleFrom="md" w={480} style={{ flexShrink: 0, position: 'relative' }}>
-              <PhotoSlot
-                src="/images/hero-family.jpg"
-                alt="A family playing with bubbles in a park"
-                height={400}
-                radius="var(--mantine-radius-xl)"
-                fallback={
-                  <Box className="float">
-                    <HeroScene size={440} />
-                  </Box>
-                }
-              />
-              <Group
-                className="glass float-slow"
-                gap="xs"
-                p="sm"
-                style={{
-                  position: 'absolute',
-                  left: -28,
-                  bottom: 36,
-                  borderRadius: 14,
-                  background: 'rgba(10, 28, 72, 0.88)',
-                }}
-              >
-                <ThemeIcon radius="xl" color="teal" variant="filled" size={30}>
-                  <IconCheck size={16} stroke={3} />
-                </ThemeIcon>
-                <Stack gap={0}>
-                  <Text size="sm" fw={650} c="white">
-                    Quote saved
-                  </Text>
-                  <Text size="xs" c="white" opacity={0.8}>
-                    QT-000128
-                  </Text>
-                </Stack>
-              </Group>
-            </Box>
           </Group>
         </Container>
       </Box>
 
-      <Section id="cover">
-        <Heading
-          eyebrow="Cover"
-          title="Insurance for the things that matter most"
-          text="Four types of cover, priced from the amount you choose and the customer's age."
-        />
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
-          {covers.map((cover, index) => (
-            <Reveal key={cover.title} delay={index * 90}>
-              <Card
-                className="lift"
-                component={Link}
-                to={`/insurance/${cover.slug}`}
-                p="lg"
-                h="100%"
-                style={{ textDecoration: 'none', color: 'inherit' }}
-              >
-                <Stack gap="md" h="100%">
-                  <PhotoSlot
-                    src={cover.photo}
-                    alt={cover.title}
-                    height={150}
-                    fallback={
-                      <Box h="100%" style={{ background: cover.tint, display: 'grid', placeItems: 'center' }}>
-                        {cover.art}
-                      </Box>
-                    }
-                  />
-                  <Title order={3} fz="lg">
-                    {cover.title}
-                  </Title>
-                  <Text size="sm" c="dimmed">
-                    {cover.text}
-                  </Text>
-                  <List
-                    size="sm"
-                    spacing={4}
-                    icon={
-                      <ThemeIcon size={16} radius="xl" color="teal" variant="light">
-                        <IconCheck size={11} stroke={3} />
-                      </ThemeIcon>
-                    }
-                  >
-                    {cover.points.map((point) => (
-                      <List.Item key={point}>{point}</List.Item>
-                    ))}
-                  </List>
-                </Stack>
-              </Card>
-            </Reveal>
-          ))}
-        </SimpleGrid>
-      </Section>
-
-      <Section tint>
-        <Heading eyebrow="Why Insure AI" title="Everything an agent needs, in one place" />
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
-          {strengths.map((item, index) => (
-            <Reveal key={item.title} delay={index * 80}>
-              <Card className="lift" p="lg" h="100%">
-                <Stack gap="sm">
-                  <ThemeIcon size={46} radius="md" variant="light">
-                    <item.icon size={24} stroke={1.6} />
-                  </ThemeIcon>
-                  <Text fw={650}>{item.title}</Text>
-                  <Text size="sm" c="dimmed">
-                    {item.text}
-                  </Text>
-                </Stack>
-              </Card>
-            </Reveal>
-          ))}
-        </SimpleGrid>
-      </Section>
-
-      <Section id="how-it-works">
-        <Heading eyebrow="How it works" title="From customer to quote in three steps" />
-        <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
-          {steps.map((step, index) => (
-            <Reveal key={step.title} delay={index * 110}>
-              <Card className="lift" p="xl" h="100%">
-                <Stack gap="sm">
-                  <Group justify="space-between">
-                    <ThemeIcon
-                      size={52}
-                      radius="lg"
-                      variant="gradient"
-                      gradient={{ from: 'brand.7', to: 'brand.4', deg: 135 }}
-                    >
-                      <step.icon size={26} stroke={1.6} />
-                    </ThemeIcon>
-                    <Text fz={44} fw={700} c="dimmed" opacity={0.3} lh={1}>
-                      {index + 1}
-                    </Text>
-                  </Group>
-                  <Text fw={650} fz="lg">
-                    {step.title}
-                  </Text>
-                  <Text c="dimmed">{step.text}</Text>
-                </Stack>
-              </Card>
-            </Reveal>
-          ))}
-        </SimpleGrid>
-        <Box mt="xl">
-          <CoverPhoto
-            src="/images/agent-handshake.jpg"
-            alt="An agent greeting an older couple at a desk"
-            height={320}
-            position="center 40%"
-            radius="var(--mantine-radius-xl)"
+      <Box className="line-section">
+        <Section id="cover">
+          <Heading
+            eyebrow="Cover"
+            title="Insurance for the things that matter most"
+            text="Four types of cover, priced from the amount you choose and the customer's age."
           />
-        </Box>
-      </Section>
-
-      <Section>
-        <SimpleGrid cols={{ base: 1, md: 2 }} spacing={48} style={{ alignItems: 'center' }}>
-          <CoverPhoto
-            src="/images/customer-keys.jpg"
-            alt="A couple holding the keys to their home"
-            height={380}
-            position="center 30%"
-            radius="var(--mantine-radius-xl)"
-          />
-          <Stack gap="md">
-            <Badge variant="light" size="lg" w="fit-content">
-              At the desk
-            </Badge>
-            <Title order={2} fz={{ base: 26, sm: 34 }}>
-              A clear answer while the customer is still in the room
-            </Title>
-            <Text c="dimmed">
-              Everything about a customer sits on one screen, with their quotes grouped by type of cover.
-            </Text>
-            <List
-              spacing={8}
-              icon={
-                <ThemeIcon size={22} radius="xl" color="teal" variant="light">
-                  <IconCheck size={13} stroke={3} />
-                </ThemeIcon>
-              }
-            >
-              <List.Item>Monthly and annual premium shown together, with tax</List.Item>
-              <List.Item>Every quote kept against the customer it was made for</List.Item>
-              <List.Item>Find anyone by name, ID, email or phone</List.Item>
-            </List>
-          </Stack>
-        </SimpleGrid>
-      </Section>
-
-      <Section id="faq" tint>
-        <Heading eyebrow="FAQ" title="Quick answers to common questions" />
-        <Box maw={760} mx="auto">
-          <Accordion variant="separated" radius="md" defaultValue={null}>
-            {faqs.map((item) => (
-              <Accordion.Item key={item.q} value={item.q}>
-                <Accordion.Control>{item.q}</Accordion.Control>
-                <Accordion.Panel>
-                  <Text c="dimmed">{item.a}</Text>
-                </Accordion.Panel>
-              </Accordion.Item>
-            ))}
-          </Accordion>
-        </Box>
-      </Section>
-
-      <Section>
-        <Box
-          style={{
-            borderRadius: 'var(--mantine-radius-xl)',
-            color: 'white',
-            overflow: 'hidden',
-            background: 'linear-gradient(135deg, #0f275f, #2557d6)',
-          }}
-        >
-          <SimpleGrid cols={{ base: 1, md: 2 }} spacing={0}>
-            <Stack gap="md" p={{ base: 'xl', sm: 56 }} justify="center">
-              <Title order={2} c="white" fz={{ base: 26, sm: 36 }}>
-                Ready to create your first quote?
-              </Title>
-              <Text c="white" opacity={0.9} maw={520}>
-                Sign in to register a customer and price their cover, or work through the numbers first.
-              </Text>
-              <Group>
-                <Button size="lg" color="white" c="brand.9" onClick={() => void signIn('/')}>
-                  Agent sign in
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  color="white"
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
+            {covers.map((cover, index) => (
+              <Reveal key={cover.title} delay={index * 90}>
+                <Card
+                  className="lift"
                   component={Link}
-                  to="/calculator"
-                  leftSection={<IconCalculator size={18} />}
+                  to={`/insurance/${cover.slug}`}
+                  p="lg"
+                  h="100%"
+                  style={{
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    borderTop: `4px solid var(--mantine-color-${coverAccents[index]}-6)`,
+                  }}
                 >
-                  Open the calculator
-                </Button>
-              </Group>
-            </Stack>
-            <Box visibleFrom="md" mih={300}>
-              <CoverPhoto
-                src="/images/agent-team.jpg"
-                alt="An agent and two customers giving a thumbs up"
-                height="100%"
-              />
-            </Box>
+                  <Stack gap="md" h="100%">
+                    <PhotoSlot
+                      src={cover.photo}
+                      alt={cover.title}
+                      height={150}
+                      fallback={
+                        <Box
+                          h="100%"
+                          style={{
+                            background: cover.tint,
+                            display: 'grid',
+                            placeItems: 'center',
+                          }}
+                        >
+                          {cover.art}
+                        </Box>
+                      }
+                    />
+                    <Title order={3} fz="lg">
+                      {cover.title}
+                    </Title>
+                    <Text size="sm" c="dimmed">
+                      {cover.text}
+                    </Text>
+                    <List
+                      size="sm"
+                      spacing={4}
+                      icon={
+                        <ThemeIcon size={16} radius="xl" color="brand" variant="light">
+                          <IconCheck size={11} stroke={3} />
+                        </ThemeIcon>
+                      }
+                    >
+                      {cover.points.map((point) => (
+                        <List.Item key={point}>{point}</List.Item>
+                      ))}
+                    </List>
+                    <Group gap={4} mt="auto" c="brand" fw={650} fz="sm">
+                      Explore {cover.title.split(' ')[0]} cover <IconArrowRight size={16} />
+                    </Group>
+                  </Stack>
+                </Card>
+              </Reveal>
+            ))}
           </SimpleGrid>
-        </Box>
-      </Section>
+        </Section>
+
+        <Section tint>
+          <Heading eyebrow="Why Insure AI" title="Everything an agent needs, in one place" />
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
+            {strengths.map((item, index) => (
+              <Reveal key={item.title} delay={index * 80}>
+                <Card className="lift" p="lg" h="100%">
+                  <Stack gap="sm">
+                    <ThemeIcon size={46} radius="md" variant="light">
+                      <item.icon size={24} stroke={1.6} />
+                    </ThemeIcon>
+                    <Text fw={650}>{item.title}</Text>
+                    <Text size="sm" c="dimmed">
+                      {item.text}
+                    </Text>
+                  </Stack>
+                </Card>
+              </Reveal>
+            ))}
+          </SimpleGrid>
+        </Section>
+
+        <Section id="how-it-works">
+          <Heading eyebrow="How it works" title="From customer to quote in three steps" />
+          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
+            {steps.map((step, index) => (
+              <Reveal key={step.title} delay={index * 110}>
+                <Card className="lift" p="xl" h="100%">
+                  <Stack gap="sm">
+                    <Group justify="space-between">
+                      <ThemeIcon
+                        size={52}
+                        radius="lg"
+                        variant="gradient"
+                        gradient={{ from: 'brand.7', to: 'brand.4', deg: 135 }}
+                      >
+                        <step.icon size={26} stroke={1.6} />
+                      </ThemeIcon>
+                      <Text fz={52} fw={800} lh={1} className="step-num">
+                        {index + 1}
+                      </Text>
+                    </Group>
+                    <Text fw={650} fz="lg">
+                      {step.title}
+                    </Text>
+                    <Text c="dimmed">{step.text}</Text>
+                  </Stack>
+                </Card>
+              </Reveal>
+            ))}
+          </SimpleGrid>
+          <Box mt="xl">
+            <CoverPhoto
+              src="/images/agent-handshake.jpg"
+              alt="An agent greeting an older couple at a desk"
+              height={320}
+              position="center 40%"
+              radius="var(--mantine-radius-xl)"
+            />
+          </Box>
+        </Section>
+
+        <Section>
+          <SimpleGrid cols={{ base: 1, md: 2 }} spacing={48} style={{ alignItems: 'center' }}>
+            <CoverPhoto
+              src="/images/customer-keys.jpg"
+              alt="A couple holding the keys to their home"
+              height={380}
+              position="center 30%"
+              radius="var(--mantine-radius-xl)"
+            />
+            <Stack gap="md">
+              <Badge variant="light" size="lg" w="fit-content">
+                At the desk
+              </Badge>
+              <Title order={2} fz={{ base: 26, sm: 34 }}>
+                A clear answer while the customer is still in the room
+              </Title>
+              <Text c="dimmed">
+                Everything about a customer sits on one screen, with their quotes grouped by type of cover.
+              </Text>
+              <List
+                spacing={8}
+                icon={
+                  <ThemeIcon size={22} radius="xl" color="brand" variant="light">
+                    <IconCheck size={13} stroke={3} />
+                  </ThemeIcon>
+                }
+              >
+                <List.Item>Monthly and annual premium shown together, with tax</List.Item>
+                <List.Item>Every quote kept against the customer it was made for</List.Item>
+                <List.Item>Find anyone by name, ID, email or phone</List.Item>
+              </List>
+            </Stack>
+          </SimpleGrid>
+        </Section>
+
+        <Section id="faq" tint>
+          <Heading eyebrow="FAQ" title="Quick answers to common questions" />
+          <Box maw={760} mx="auto">
+            <Accordion variant="separated" radius="md" defaultValue={null}>
+              {faqs.map((item) => (
+                <Accordion.Item key={item.q} value={item.q}>
+                  <Accordion.Control>{item.q}</Accordion.Control>
+                  <Accordion.Panel>
+                    <Text c="dimmed">{item.a}</Text>
+                  </Accordion.Panel>
+                </Accordion.Item>
+              ))}
+            </Accordion>
+          </Box>
+        </Section>
+
+        <Section>
+          <Box
+            style={{
+              borderRadius: 'var(--mantine-radius-xl)',
+              color: 'white',
+              overflow: 'hidden',
+              background: 'var(--insure-navy-gradient)',
+            }}
+          >
+            <SimpleGrid cols={{ base: 1, md: 2 }} spacing={0}>
+              <Stack gap="md" p={{ base: 'xl', sm: 56 }} justify="center">
+                <Title order={2} c="white" fz={{ base: 26, sm: 36 }}>
+                  Ready to create your first quote?
+                </Title>
+                <Text c="white" opacity={0.9} maw={520}>
+                  Sign in to register a customer and price their cover.
+                </Text>
+                <Group>
+                  <Button size="lg" className="btn-on-dark" onClick={() => void signIn('/')}>
+                    Sign in to get started
+                  </Button>
+                </Group>
+              </Stack>
+              <Box visibleFrom="md" mih={300}>
+                <CoverPhoto
+                  src="/images/agent-team.jpg"
+                  alt="An agent and two customers giving a thumbs up"
+                  height="100%"
+                />
+              </Box>
+            </SimpleGrid>
+          </Box>
+        </Section>
+      </Box>
     </>
   )
 }

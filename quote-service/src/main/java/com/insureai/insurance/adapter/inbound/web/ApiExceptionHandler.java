@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import com.insureai.insurance.domain.exception.CustomerProfileMissingException;
 import com.insureai.insurance.domain.exception.CustomerReferenceNotFoundException;
 import com.insureai.insurance.domain.exception.CustomerServiceTimeoutException;
 import com.insureai.insurance.domain.exception.CustomerServiceUnavailableException;
@@ -30,7 +31,13 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(DomainValidationException.class)
     public ResponseEntity<ProblemDetail> handleDomainValidation(DomainValidationException exception) {
-        LOGGER.warn("Quote request rejected: {}", exception.getMessage());
+        LOGGER.atWarn()
+            .setMessage("Quote request rejected: {}")
+            .addArgument(exception.getMessage())
+            .addKeyValue("event.action", "quote.rejected")
+            .addKeyValue("reason", "invalid_request")
+            .addKeyValue("rejectedField", exception.field())
+            .log();
         ProblemDetail problem = ApiProblem.of(
             HttpStatus.BAD_REQUEST,
             "Invalid quote request",
@@ -45,7 +52,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(QuoteNotFoundException.class)
     public ResponseEntity<ProblemDetail> handleQuoteNotFound(QuoteNotFoundException exception) {
-        LOGGER.info("Quote lookup found nothing: {}", exception.getMessage());
+        LOGGER.atInfo()
+            .setMessage("Quote lookup found nothing: {}")
+            .addArgument(exception.getMessage())
+            .addKeyValue("event.action", "quote.not_found")
+            .log();
         return ApiProblem.response(
             HttpStatus.NOT_FOUND,
             "Quote not found",
@@ -54,9 +65,30 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         );
     }
 
+    @ExceptionHandler(CustomerProfileMissingException.class)
+    public ResponseEntity<ProblemDetail> handleProfileMissing(CustomerProfileMissingException exception) {
+        LOGGER.atInfo()
+            .setMessage("Quote request rejected: {}")
+            .addArgument(exception.getMessage())
+            .addKeyValue("event.action", "quote.rejected")
+            .addKeyValue("reason", "profile_missing")
+            .log();
+        return ApiProblem.response(
+            HttpStatus.CONFLICT,
+            "Profile required",
+            exception.getMessage(),
+            "PROFILE_REQUIRED"
+        );
+    }
+
     @ExceptionHandler(CustomerReferenceNotFoundException.class)
     public ResponseEntity<ProblemDetail> handleUnknownCustomer(CustomerReferenceNotFoundException exception) {
-        LOGGER.warn("Quote request rejected: {}", exception.getMessage());
+        LOGGER.atWarn()
+            .setMessage("Quote request rejected: {}")
+            .addArgument(exception.getMessage())
+            .addKeyValue("event.action", "quote.rejected")
+            .addKeyValue("reason", "unknown_customer")
+            .log();
         return ApiProblem.response(
             HttpStatus.UNPROCESSABLE_ENTITY,
             "Invalid customer reference",
@@ -69,7 +101,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<ProblemDetail> handleCustomerServiceUnavailable(
         CustomerServiceUnavailableException exception
     ) {
-        LOGGER.warn("Customer Service lookup failed: {}", exception.getMessage());
+        LOGGER.atWarn()
+            .setMessage("Customer Service lookup failed: {}")
+            .addArgument(exception.getMessage())
+            .addKeyValue("event.action", "customer_service.unavailable")
+            .log();
         return ApiProblem.response(
             HttpStatus.SERVICE_UNAVAILABLE,
             "Customer Service unavailable",
@@ -80,7 +116,10 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(CustomerServiceTimeoutException.class)
     public ResponseEntity<ProblemDetail> handleCustomerServiceTimeout(CustomerServiceTimeoutException exception) {
-        LOGGER.warn("Customer Service lookup timed out.");
+        LOGGER.atWarn()
+            .setMessage("Customer Service lookup timed out.")
+            .addKeyValue("event.action", "customer_service.timeout")
+            .log();
         return ApiProblem.response(
             HttpStatus.GATEWAY_TIMEOUT,
             "Customer Service timeout",
@@ -91,7 +130,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler({DataAccessException.class, TransactionSystemException.class})
     public ResponseEntity<ProblemDetail> handlePersistenceFailure(RuntimeException exception) {
-        LOGGER.error("Quote persistence failed ({}).", exception.getClass().getSimpleName());
+        LOGGER.atError()
+            .setMessage("Quote persistence failed ({}).")
+            .addArgument(exception.getClass().getSimpleName())
+            .addKeyValue("event.action", "persistence.failed")
+            .addKeyValue("error.type", exception.getClass().getSimpleName())
+            .log();
         return ApiProblem.response(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "Persistence failure",
@@ -102,7 +146,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleUnexpected(Exception exception) {
-        LOGGER.error("Unhandled exception while processing the request.", exception);
+        LOGGER.atError()
+            .setMessage("Unhandled exception while processing the request.")
+            .setCause(exception)
+            .addKeyValue("event.action", "request.failed")
+            .log();
         return ApiProblem.response(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "Internal server error",
@@ -122,7 +170,14 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             .map(error -> new FieldViolation(error.getField(), error.getDefaultMessage()))
             .toList();
         String detail = violations.isEmpty() ? "Request validation failed" : violations.get(0).message();
-        LOGGER.warn("Quote request validation failed on fields {}.", violations.stream().map(FieldViolation::field).distinct().toList());
+        List<String> fields = violations.stream().map(FieldViolation::field).distinct().toList();
+        LOGGER.atWarn()
+            .setMessage("Quote request validation failed on fields {}.")
+            .addArgument(fields)
+            .addKeyValue("event.action", "quote.rejected")
+            .addKeyValue("reason", "validation")
+            .addKeyValue("rejectedFields", fields)
+            .log();
 
         ProblemDetail problem = ApiProblem.of(HttpStatus.BAD_REQUEST, "Validation failed", detail, "VALIDATION_FAILED");
         problem.setProperty("errors", violations);
@@ -138,7 +193,13 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         WebRequest request
     ) {
         if (statusCode.is5xxServerError()) {
-            LOGGER.error("Request failed with status {}.", statusCode.value(), exception);
+            LOGGER.atError()
+                .setMessage("Request failed with status {}.")
+                .addArgument(statusCode.value())
+                .setCause(exception)
+                .addKeyValue("event.action", "request.failed")
+                .addKeyValue("http.response.status_code", statusCode.value())
+                .log();
         }
         if (body instanceof ProblemDetail problem) {
             HttpStatus resolved = HttpStatus.resolve(statusCode.value());

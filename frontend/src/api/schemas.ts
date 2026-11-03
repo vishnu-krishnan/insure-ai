@@ -15,6 +15,59 @@ const amount = z
 export const GENDERS = ['MALE', 'FEMALE', 'OTHER', 'UNSPECIFIED'] as const
 export const MARITAL_STATUSES = ['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED'] as const
 
+export const ID_TYPES = ['AADHAAR', 'PAN', 'PASSPORT', 'DRIVING_LICENCE', 'VOTER_ID'] as const
+export const ID_TYPE_INFO: Record<
+  (typeof ID_TYPES)[number],
+  { label: string; example: string; pattern: RegExp; hint: string }
+> = {
+  AADHAAR: {
+    label: 'Aadhaar',
+    example: '2345 6789 0123',
+    pattern: /^[2-9][0-9]{11}$/,
+    hint: 'Aadhaar number must be 12 digits',
+  },
+  PAN: {
+    label: 'PAN',
+    example: 'ABCDE1234F',
+    pattern: /^[A-Z]{5}[0-9]{4}[A-Z]$/,
+    hint: 'PAN must look like ABCDE1234F',
+  },
+  PASSPORT: {
+    label: 'Passport',
+    example: 'A1234567',
+    pattern: /^[A-Z][0-9]{7}$/,
+    hint: 'Passport number is a letter followed by 7 digits',
+  },
+  DRIVING_LICENCE: {
+    label: 'Driving licence',
+    example: 'MH14 20110062821',
+    pattern: /^[A-Z]{2}[0-9]{2}[0-9A-Z]{11}$/,
+    hint: 'Driving licence number must be 15 letters and digits',
+  },
+  VOTER_ID: {
+    label: 'Voter ID',
+    example: 'ABC1234567',
+    pattern: /^[A-Z]{3}[0-9]{7}$/,
+    hint: 'Voter ID is 3 letters followed by 7 digits',
+  },
+}
+export const normaliseIdNumber = (value: string) => value.replace(/[\s-]/g, '').toUpperCase()
+
+const NAME_CHARS = /^\p{L}[\p{L}\p{M} .'-]*$/u
+const TEXT_CHARS = /^[\p{L}\p{M}\p{N} .,&'/()#-]*$/u
+const MIN_AGE = 18
+const MAX_AGE = 75
+
+function ageOf(isoDate: string): number {
+  const [year, month, day] = isoDate.split('-').map(Number) as [number, number, number]
+  const today = new Date()
+  let age = today.getFullYear() - year
+  if (today.getMonth() + 1 < month || (today.getMonth() + 1 === month && today.getDate() < day)) {
+    age -= 1
+  }
+  return age
+}
+
 const emptyAddress = { line1: '', line2: '', city: '', state: '', postalCode: '', country: '' }
 const emptyNominee = { name: '', relationship: '' }
 
@@ -23,8 +76,9 @@ export const customerRequestSchema = z
     fullName: z
       .string()
       .trim()
-      .min(2, 'Name must be at least 2 characters')
-      .max(80, 'Name must be at most 80 characters'),
+      .min(2, 'Enter your full name (at least 2 characters)')
+      .max(80, 'Name must be at most 80 characters')
+      .regex(NAME_CHARS, 'Use letters, spaces, apostrophes, hyphens and periods only'),
     email: z
       .string()
       .trim()
@@ -34,31 +88,67 @@ export const customerRequestSchema = z
       .string()
       .trim()
       .regex(/^\+[1-9][0-9]{7,14}$/, 'Use international format, for example +919876543210'),
-    dateOfBirth: isoDate.refine(
-      (value) => value < new Date().toISOString().slice(0, 10),
-      'Date of birth must be in the past',
-    ),
+    dateOfBirth: isoDate
+      .refine((value) => !Number.isNaN(Date.parse(value)), 'Enter a real date')
+      .refine((value) => value < new Date().toISOString().slice(0, 10), 'Date of birth must be in the past')
+      .refine((value) => ageOf(value) >= MIN_AGE, `You must be at least ${MIN_AGE} years old`)
+      .refine((value) => ageOf(value) <= MAX_AGE, `Cover is available up to age ${MAX_AGE}`),
     gender: z.enum(['', ...GENDERS]),
     maritalStatus: z.enum(['', ...MARITAL_STATUSES]),
-    occupation: z.string().trim().max(80, 'Occupation must be at most 80 characters'),
+    occupation: z
+      .string()
+      .trim()
+      .max(80, 'Occupation must be at most 80 characters')
+      .regex(TEXT_CHARS, 'Use letters, numbers and basic punctuation only'),
     annualIncome: z
       .string()
       .trim()
-      .regex(/^(\d{1,12}(\.\d{1,2})?)?$/, 'Enter an amount of zero or more with at most two decimals'),
+      .regex(/^(\d{1,12}(\.\d{1,2})?)?$/, 'Enter an amount of zero or more, up to 12 digits and two decimals'),
+    idType: z.enum(['', ...ID_TYPES]),
+    idNumber: z.string().trim().max(30, 'ID number must be at most 30 characters'),
     address: z.object({
-      line1: z.string().trim().max(120, 'Address line must be at most 120 characters'),
-      line2: z.string().trim().max(120, 'Address line must be at most 120 characters'),
-      city: z.string().trim().max(80, 'City must be at most 80 characters'),
-      state: z.string().trim().max(80, 'State must be at most 80 characters'),
+      line1: z
+        .string()
+        .trim()
+        .max(120, 'Address line must be at most 120 characters')
+        .regex(TEXT_CHARS, 'Use letters, numbers and basic punctuation only'),
+      line2: z
+        .string()
+        .trim()
+        .max(120, 'Address line must be at most 120 characters')
+        .regex(TEXT_CHARS, 'Use letters, numbers and basic punctuation only'),
+      city: z
+        .string()
+        .trim()
+        .max(80, 'City must be at most 80 characters')
+        .regex(/^$|^[\p{L}\p{M}][\p{L}\p{M} .'-]*$/u, 'City can contain letters only'),
+      state: z
+        .string()
+        .trim()
+        .max(80, 'State must be at most 80 characters')
+        .regex(/^$|^[\p{L}\p{M}][\p{L}\p{M} .'-]*$/u, 'State can contain letters only'),
       postalCode: z.string().trim(),
       country: z.string().trim(),
     }),
     nominee: z.object({
       name: z.string().trim(),
-      relationship: z.string().trim().max(40, 'Relationship must be at most 40 characters'),
+      relationship: z
+        .string()
+        .trim()
+        .max(40, 'Relationship must be at most 40 characters')
+        .regex(/^$|^[\p{L}\p{M}][\p{L}\p{M} -]*$/u, 'Relationship can contain letters only'),
     }),
   })
   .superRefine((value, context) => {
+    if (value.idType !== '' || value.idNumber !== '') {
+      if (value.idType === '') {
+        context.addIssue({ code: 'custom', path: ['idType'], message: 'Choose the type of ID' })
+      } else if (value.idNumber === '') {
+        context.addIssue({ code: 'custom', path: ['idNumber'], message: 'Enter your ID number' })
+      } else if (!ID_TYPE_INFO[value.idType].pattern.test(normaliseIdNumber(value.idNumber))) {
+        context.addIssue({ code: 'custom', path: ['idNumber'], message: ID_TYPE_INFO[value.idType].hint })
+      }
+    }
     const { line2: _optional, ...required } = value.address
     const started = Object.values(required).some((part) => part !== '')
     if (started) {
@@ -99,6 +189,12 @@ export const customerRequestSchema = z
           path: ['nominee', 'name'],
           message: 'Nominee name must be 2 to 80 characters',
         })
+      } else if (!NAME_CHARS.test(value.nominee.name)) {
+        context.addIssue({
+          code: 'custom',
+          path: ['nominee', 'name'],
+          message: 'Use letters, spaces, apostrophes, hyphens and periods only',
+        })
       }
       if (value.nominee.relationship === '') {
         context.addIssue({ code: 'custom', path: ['nominee', 'relationship'], message: 'Enter the relationship' })
@@ -106,6 +202,39 @@ export const customerRequestSchema = z
     }
   })
 export type CustomerRequest = z.infer<typeof customerRequestSchema>
+
+// A customer's own profile is only complete, and quotes only open up, once every field below is filled in.
+export const OCCUPATIONS = [
+  { value: 'Salaried', detail: 'Job title and employer' },
+  { value: 'Self-employed', detail: 'What kind of work you do' },
+  { value: 'Business owner', detail: 'Type of business' },
+  { value: 'Professional', detail: 'Profession, for example doctor or lawyer' },
+  { value: 'Student', detail: null },
+  { value: 'Homemaker', detail: null },
+  { value: 'Retired', detail: null },
+  { value: 'Unemployed', detail: null },
+  { value: 'Other', detail: 'Describe your occupation' },
+] as const
+export const OCCUPATION_SEPARATOR = ' - '
+
+export function splitOccupation(value: string): { category: string; details: string } {
+  const [head = '', ...rest] = value.split(OCCUPATION_SEPARATOR)
+  const known = OCCUPATIONS.some((item) => item.value === head)
+  return known
+    ? { category: head, details: rest.join(OCCUPATION_SEPARATOR) }
+    : { category: value ? 'Other' : '', details: value }
+}
+
+// A customer's own profile can be saved in parts. It only counts as complete, and quotes only open up,
+// once every field is filled in (see features/me/profileStatus.ts); here we only check what has been entered.
+export const myProfileSchema = customerRequestSchema.superRefine((value, context) => {
+  if (value.occupation === '') return
+  const { category, details } = splitOccupation(value.occupation)
+  const wanted = OCCUPATIONS.find((item) => item.value === category)?.detail
+  if (wanted && details.trim().length < 2) {
+    context.addIssue({ code: 'custom', path: ['occupation'], message: 'Add a few details about your occupation' })
+  }
+})
 
 export const emptyCustomerForm: CustomerRequest = {
   fullName: '',
@@ -116,6 +245,8 @@ export const emptyCustomerForm: CustomerRequest = {
   maritalStatus: '',
   occupation: '',
   annualIncome: '',
+  idType: '',
+  idNumber: '',
   address: emptyAddress,
   nominee: emptyNominee,
 }
@@ -131,6 +262,8 @@ export interface CustomerPayload {
   annualIncome?: number
   address?: { line1: string; line2?: string; city: string; state: string; postalCode: string; country: string }
   nominee?: { name: string; relationship: string }
+  idType?: string
+  idNumber?: string
 }
 
 export function toCustomerPayload(form: CustomerRequest): CustomerPayload {
@@ -154,6 +287,10 @@ export function toCustomerPayload(form: CustomerRequest): CustomerPayload {
   }
   if (form.nominee.name.trim() || form.nominee.relationship.trim()) {
     payload.nominee = { name: form.nominee.name.trim(), relationship: form.nominee.relationship.trim() }
+  }
+  if (form.idType && form.idNumber.trim()) {
+    payload.idType = form.idType
+    payload.idNumber = normaliseIdNumber(form.idNumber)
   }
   return payload
 }
@@ -180,6 +317,9 @@ export const customerResponseSchema = z.object({
     })
     .nullish(),
   nominee: z.object({ name: z.string(), relationship: z.string() }).nullish(),
+  idType: z.string().nullish(),
+  idNumber: z.string().nullish(),
+  profileComplete: z.boolean().nullish(),
   createdAt: z.string().nullish(),
   updatedAt: z.string().nullish(),
 })

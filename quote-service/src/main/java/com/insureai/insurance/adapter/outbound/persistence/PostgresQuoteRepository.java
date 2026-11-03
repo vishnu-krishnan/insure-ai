@@ -55,6 +55,11 @@ public class PostgresQuoteRepository implements QuoteRepositoryPort {
     private static final String COUNT_QUOTES = "SELECT COUNT(*) FROM policy_quote ";
     private static final String SELECT_QUOTE_BY_ID = "SELECT " + QUOTE_COLUMNS
         + "FROM policy_quote WHERE quote_id = ?";
+    private static final String SELECT_QUOTES_FOR_CUSTOMER = "SELECT " + QUOTE_COLUMNS
+        + "FROM policy_quote WHERE customer_id = ? " + PAGE_ORDER;
+    private static final String COUNT_QUOTES_FOR_CUSTOMER = "SELECT COUNT(*) FROM policy_quote WHERE customer_id = ?";
+    private static final String SELECT_QUOTE_FOR_CUSTOMER = "SELECT " + QUOTE_COLUMNS
+        + "FROM policy_quote WHERE quote_id = ? AND customer_id = ?";
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final TypeReference<LinkedHashMap<String, Object>> DETAILS_TYPE = new TypeReference<>() {
     };
@@ -114,6 +119,22 @@ public class PostgresQuoteRepository implements QuoteRepositoryPort {
         Long total = jdbcTemplate.queryForObject(
             COUNT_QUOTES + filterClause(coverageType), Long.class, filterParameters(query, coverageType));
         return total == null ? 0 : total;
+    }
+
+    @Override
+    public List<PolicyQuote> findPageForCustomer(String customerId, long offset, int limit) {
+        return List.copyOf(jdbcTemplate.query(SELECT_QUOTES_FOR_CUSTOMER, QUOTE_ROW_MAPPER, customerId, limit, offset));
+    }
+
+    @Override
+    public long countForCustomer(String customerId) {
+        Long total = jdbcTemplate.queryForObject(COUNT_QUOTES_FOR_CUSTOMER, Long.class, customerId);
+        return total == null ? 0 : total;
+    }
+
+    @Override
+    public Optional<PolicyQuote> findByIdForCustomer(String quoteId, String customerId) {
+        return jdbcTemplate.query(SELECT_QUOTE_FOR_CUSTOMER, QUOTE_ROW_MAPPER, quoteId, customerId).stream().findFirst();
     }
 
     private static String filterClause(CoverageType coverageType) {

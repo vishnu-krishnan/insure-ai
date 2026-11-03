@@ -2,7 +2,7 @@
 :root {
   --insure-accent: #3f6ff0;
   --insure-accent-dark: #2557d6;
-  --insure-bg: #f5f7fb;
+  --insure-bg: #ffffff;
   --insure-card: #ffffff;
   --insure-text: #0b1222;
   --insure-muted: #5b6678;
@@ -25,60 +25,152 @@
   --pf-v5-global--active-color--100: var(--insure-accent-dark);
 }
 
+/* Full-page backdrop: deep blue gradient with fine line artwork, shared by header, page and footer. */
+html,
+body,
+.login-pf body {
+  background:
+    url('../img/lines.svg') center / cover no-repeat,
+    radial-gradient(900px 600px at 15% 0%, rgba(60, 110, 230, 0.35), transparent 65%),
+    radial-gradient(800px 600px at 100% 100%, rgba(40, 90, 210, 0.30), transparent 60%),
+    linear-gradient(160deg, #040c26 0%, #0a2063 50%, #123a9c 100%) !important;
+  background-attachment: fixed !important;
+  background-size: cover !important;
+  min-height: 100vh;
+}
+body {
+  display: flex;
+  flex-direction: column;
+}
 .pf-v5-c-login,
 .login-pf-page {
-  background: var(--insure-bg);
-  background-image: none;
+  background: transparent;
+  flex: 1;
+  min-height: 0;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+.pf-v5-c-login__container {
+  align-content: center;
 }
 
-/* Brand header: logo above the realm name. */
+/* Brand header: logo, name and a one-line pitch above the card. */
 #kc-header-wrapper {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  color: var(--insure-text) !important;
-  font-size: 1.5rem;
-  font-weight: 650;
-  letter-spacing: 0;
+  color: #ffffff !important;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   text-transform: none;
+  padding-bottom: 20px;
 }
 #kc-header-wrapper::before {
   content: '';
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
   background: url('../img/logo.svg') center / contain no-repeat;
+  filter: drop-shadow(0 8px 20px rgba(63, 111, 240, 0.55));
+}
+#kc-header-wrapper::after {
+  content: 'Insurance quotes, made simple.';
+  max-width: 440px;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 400;
+  line-height: 1.5;
+  text-wrap: balance;
+  color: rgba(255, 255, 255, 0.78);
 }
 
+/* Card: frosted, soft border, no PatternFly top rule. */
 .pf-v5-c-login__main {
+  --pf-v5-c-login__main--BorderTopColor: transparent;
+  --pf-v5-c-login__main--BorderTopWidth: 0;
   background: var(--insure-card);
   color: var(--insure-text);
-  border: 1px solid var(--insure-border);
-  border-top: 3px solid var(--insure-accent);
-  border-radius: 12px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-top: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 20px;
+  box-shadow: 0 30px 80px rgba(2, 8, 28, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  padding: 20px 20px 16px;
+}
+.pf-v5-c-login__main::before {
+  display: none;
+}
+.pf-v5-c-login__main-header {
+  border-top: 0;
+  border-bottom: 0;
+  padding-bottom: 4px;
 }
 .pf-v5-c-login__main-header,
 .pf-v5-c-title,
 .pf-v5-c-form__label-text {
   color: var(--insure-text);
 }
-.pf-v5-c-form-control {
-  --pf-v5-c-form-control--BorderRadius: 8px;
+.pf-v5-c-login__main-header .pf-v5-c-title {
+  font-size: 1.5rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
+.pf-v5-c-form__label-text {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Inputs: boxed, roomy, with a clear focus ring. */
+.pf-v5-c-form-control {
+  --pf-v5-c-form-control--Height: 46px;
+  background: var(--insure-card);
+  border: 1px solid var(--insure-muted);
+  border-radius: 10px;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.pf-v5-c-form-control::before,
+.pf-v5-c-form-control::after {
+  display: none;
+}
+.pf-v5-c-form-control:hover {
+  border-color: var(--insure-accent-dark);
+}
+.pf-v5-c-form-control:focus-within {
+  border-color: var(--insure-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--insure-accent) 22%, transparent);
+}
+.pf-v5-c-form-control input {
+  background: transparent;
+  color: var(--insure-text);
+}
+.pf-v5-c-form-control input {
+  padding-inline: 14px;
+}
+
+/* Primary button: taller, subtle gradient and lift on hover. */
 .pf-v5-c-button.pf-m-primary {
   --pf-v5-c-button--m-primary--BackgroundColor: var(--insure-accent-dark);
   --pf-v5-c-button--m-primary--hover--BackgroundColor: var(--insure-accent);
   --pf-v5-c-button--m-primary--focus--BackgroundColor: var(--insure-accent);
   --pf-v5-c-button--m-primary--active--BackgroundColor: var(--insure-accent);
   --pf-v5-c-button--m-primary--Color: #ffffff;
-  --pf-v5-c-button--BorderRadius: 8px;
+  --pf-v5-c-button--BorderRadius: 10px;
+  min-height: 48px;
+  font-size: 1rem;
   font-weight: 600;
+  background-image: linear-gradient(180deg, var(--insure-accent), var(--insure-accent-dark));
+  box-shadow: 0 8px 20px rgba(37, 87, 214, 0.35);
+  transition: transform 0.12s ease, box-shadow 0.15s ease;
+}
+.pf-v5-c-button.pf-m-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(37, 87, 214, 0.45);
 }
 .pf-v5-theme-dark .pf-v5-c-button.pf-m-primary {
   --pf-v5-c-button--m-primary--BackgroundColor: var(--insure-accent);
   --pf-v5-c-button--m-primary--hover--BackgroundColor: #8fb0ff;
   --pf-v5-c-button--m-primary--Color: #0b1222;
+  background-image: none;
 }
 a,
 .pf-v5-c-login__main-footer-band a {
@@ -86,4 +178,361 @@ a,
 }
 .pf-v5-theme-dark a {
   color: var(--insure-accent);
+}
+
+/* Links in the footer band and the "back to login" row stay readable on the card. */
+.pf-v5-c-login__footer,
+.pf-v5-c-login__footer a {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Password field: the group owns the border; the eye toggle sits inside it, borderless. */
+.pf-v5-c-input-group {
+  background: var(--insure-card);
+  border: 1px solid var(--insure-muted);
+  border-radius: 10px;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.pf-v5-c-input-group:hover {
+  border-color: var(--insure-accent-dark);
+}
+.pf-v5-c-input-group:focus-within {
+  border-color: var(--insure-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--insure-accent) 22%, transparent);
+}
+.pf-v5-c-input-group .pf-v5-c-form-control,
+.pf-v5-c-input-group .pf-v5-c-form-control:hover,
+.pf-v5-c-input-group .pf-v5-c-form-control:focus-within {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.pf-v5-c-input-group .pf-v5-c-button.pf-m-control {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--insure-muted);
+  min-height: 0;
+}
+.pf-v5-c-input-group .pf-v5-c-button.pf-m-control::before,
+.pf-v5-c-input-group .pf-v5-c-button.pf-m-control::after {
+  display: none;
+}
+.pf-v5-c-input-group .pf-v5-c-button.pf-m-control:hover {
+  color: var(--insure-accent-dark);
+  transform: none;
+}
+
+/* Register page: two-column grid, reordered as name, email, username, password. */
+#kc-register-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 14px;
+  align-items: start;
+}
+#kc-register-form > .pf-v5-c-form__group {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+#kc-register-form > .pf-v5-c-form__group:has(#firstName) { order: 1; grid-column: auto; }
+#kc-register-form > .pf-v5-c-form__group:has(#lastName) { order: 2; grid-column: auto; }
+#kc-register-form > .pf-v5-c-form__group:has(#email) { order: 3; }
+#kc-register-form > .pf-v5-c-form__group:has(#username) { order: 4; }
+#kc-register-form > .pf-v5-c-form__group:has(#password) { order: 5; grid-column: auto; }
+#kc-register-form > .pf-v5-c-form__group:has(#password-confirm) { order: 6; grid-column: auto; }
+#kc-register-form > .pf-v5-c-form__group:has(#kc-form-buttons),
+#kc-register-form > #kc-form-buttons { order: 7; margin-top: 4px; }
+#kc-register-form .pf-v5-c-login__main-footer-band { order: 8; }
+#kc-register-form + .pf-v5-c-login__main-footer-band,
+.pf-v5-c-login__main-footer-band {
+  border-top: 1px solid var(--insure-border);
+  margin-top: 8px;
+  padding-top: 14px;
+  text-align: center;
+}
+@media (max-width: 560px) {
+  #kc-register-form { grid-template-columns: 1fr; }
+  #kc-register-form > .pf-v5-c-form__group:has(#firstName),
+  #kc-register-form > .pf-v5-c-form__group:has(#lastName),
+  #kc-register-form > .pf-v5-c-form__group:has(#password),
+  #kc-register-form > .pf-v5-c-form__group:has(#password-confirm) { grid-column: 1 / -1; }
+}
+
+/* Tighten spacing: less empty space above, around and inside the card. */
+.pf-v5-c-login__container {
+  align-content: start;
+  padding-block: 40px 32px;
+}
+.pf-v5-c-login__header {
+  margin: 0;
+  padding: 0;
+}
+#kc-header-wrapper {
+  gap: 8px;
+  padding-bottom: 14px;
+}
+#kc-header-wrapper::before {
+  width: 48px;
+  height: 48px;
+}
+.pf-v5-c-login__main {
+  padding: 8px 12px 12px;
+}
+.pf-v5-c-login__main-header {
+  padding: 12px 0 4px;
+  margin: 0;
+}
+.pf-v5-c-login__main-body {
+  padding: 8px 0 0;
+}
+.pf-v5-c-login__main-header .pf-v5-c-title {
+  margin: 0;
+}
+.pf-v5-c-form {
+  --pf-v5-c-form--GridGap: 14px;
+  gap: 14px;
+}
+.pf-v5-c-form__group {
+  margin: 0;
+}
+.pf-v5-c-form__group-label {
+  padding-bottom: 6px;
+}
+#kc-register-form {
+  gap: 14px 12px;
+}
+#kc-register-form > * {
+  grid-column: 1 / -1;
+}
+#kc-register-form > .pf-v5-c-form__group:has(#firstName),
+#kc-register-form > .pf-v5-c-form__group:has(#lastName),
+#kc-register-form > .pf-v5-c-form__group:has(#password),
+#kc-register-form > .pf-v5-c-form__group:has(#password-confirm) {
+  grid-column: auto;
+}
+#kc-register-form > :has(button[type='submit']),
+#kc-register-form > :has(input[type='submit']) {
+  order: 7;
+  margin-top: 2px;
+}
+#kc-form-buttons {
+  margin: 0;
+}
+#kc-form-login .pf-v5-c-form__helper-text,
+#kc-form-options,
+#kc-form-login a[href*='reset-credentials'] {
+  margin: 0;
+}
+.pf-v5-c-login__main-footer-band {
+  margin-top: 4px;
+  padding: 12px 0 0;
+}
+.pf-v5-c-login__main-footer {
+  margin: 0;
+  padding: 0;
+}
+
+/* Submit buttons fill the full form width. */
+#kc-register-form > #kc-form-buttons {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+#kc-form-buttons input.pf-v5-c-button,
+#kc-form-buttons button.pf-v5-c-button {
+  display: block;
+  width: 100%;
+}
+
+/* Comfortable card padding and field rhythm. */
+.pf-v5-c-login__main {
+  padding: 28px 36px 24px;
+}
+.pf-v5-c-login__main-header {
+  padding: 0 0 8px;
+}
+.pf-v5-c-login__main-body {
+  padding: 8px 0 0;
+}
+.pf-v5-c-form {
+  gap: 18px;
+}
+#kc-register-form {
+  gap: 18px 16px;
+}
+.pf-v5-c-form__group-label {
+  padding-bottom: 8px;
+}
+#kc-form-login #kc-form-options,
+#kc-form-login a[href*='reset-credentials'] {
+  display: inline-block;
+  margin-top: 10px;
+}
+#kc-form-buttons {
+  margin-top: 6px;
+}
+.pf-v5-c-login__main-footer-band {
+  margin-top: 8px;
+  padding-top: 16px;
+}
+
+/* Anchor the content to the top so the logo sits in the same place on every page. */
+.pf-v5-c-login__container {
+  margin: 0 auto;
+  align-content: start;
+  padding-top: max(24px, 5vh);
+}
+
+/* The app header and footer replace Keycloak's stand-alone brand block. */
+#kc-header {
+  display: none;
+}
+.insure-app-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(4, 12, 38, 0.72);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.insure-app-header__inner,
+.insure-app-footer__inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.insure-app-header__inner {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+.insure-app-header__brand,
+.insure-app-footer__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.15rem;
+  text-decoration: none;
+}
+.insure-app-header__nav {
+  display: flex;
+  gap: 22px;
+  margin-right: auto;
+}
+.insure-app-header__nav a,
+.insure-app-footer nav a {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.9rem;
+  font-weight: 550;
+  text-decoration: none;
+}
+.insure-app-header__nav a:hover,
+.insure-app-footer nav a:hover {
+  color: #ffffff;
+}
+.insure-app-header__cta {
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 10px;
+}
+.insure-app-header__cta:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.insure-perks {
+  list-style: none;
+  width: 100%;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 24px 40px;
+}
+.insure-perks li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  text-align: center;
+}
+.insure-perks strong {
+  color: #ffffff;
+  font-size: 0.95rem;
+}
+.insure-app-footer {
+  background: #030a20;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 28px 0;
+}
+.insure-app-footer__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 32px;
+}
+.insure-app-footer nav {
+  display: flex;
+  gap: 22px;
+  margin-right: auto;
+}
+.insure-app-footer p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.78rem;
+}
+@media (max-width: 720px) {
+  .insure-app-header__nav { display: none; }
+  .insure-app-header__inner { justify-content: space-between; }
+  .insure-perks { grid-template-columns: 1fr; }
+}
+
+/* Footer is a single quiet line: copyright left, disclaimer right. */
+.insure-app-footer {
+  padding: 18px 0;
+}
+.insure-app-footer__inner {
+  justify-content: space-between;
+}
+
+/* Card: soft light-blue surface with white fields, easy on the eye against the deep blue page. */
+.pf-v5-c-login__main {
+  --insure-bg: #ffffff;
+  --insure-card: #eef4ff;
+  --insure-text: #0b1b3f;
+  --insure-muted: #51608a;
+  --insure-border: #b9c8e8;
+  --insure-accent: #2f66e8;
+  --insure-accent-dark: #1d4fd0;
+  background:
+    url('../img/lines-light.svg') center / cover no-repeat,
+    linear-gradient(180deg, #f4f8ff 0%, #e6eeff 100%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  color: var(--insure-text);
+  box-shadow: 0 30px 80px rgba(0, 6, 30, 0.5);
+}
+.pf-v5-c-login__main .pf-v5-c-form-control,
+.pf-v5-c-login__main .pf-v5-c-input-group {
+  background: #ffffff;
+  border-color: var(--insure-border);
+}
+.pf-v5-c-login__main .pf-v5-c-form-control:hover,
+.pf-v5-c-login__main .pf-v5-c-input-group:hover {
+  border-color: var(--insure-accent);
+}
+.pf-v5-c-login__main a {
+  color: var(--insure-accent-dark);
+}
+.pf-v5-c-login__main-footer-band,
+.pf-v5-c-login__main-footer-band-item {
+  color: var(--insure-muted);
+  border-color: var(--insure-border);
 }

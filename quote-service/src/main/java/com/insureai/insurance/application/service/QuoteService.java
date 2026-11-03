@@ -11,6 +11,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -27,10 +28,12 @@ import com.insureai.insurance.application.port.inbound.CreateQuoteCommand;
 import com.insureai.insurance.application.port.inbound.CreateQuoteUseCase;
 import com.insureai.insurance.application.port.inbound.GetQuoteUseCase;
 import com.insureai.insurance.application.port.inbound.ListQuotesUseCase;
+import com.insureai.insurance.application.port.inbound.MyQuotesUseCase;
 import com.insureai.insurance.application.port.inbound.QuotePage;
 import com.insureai.insurance.application.port.outbound.CustomerProfileLookupPort;
 import com.insureai.insurance.application.port.outbound.CustomerProfileSnapshot;
 import com.insureai.insurance.application.port.outbound.QuoteRepositoryPort;
+import com.insureai.insurance.domain.exception.CustomerProfileMissingException;
 import com.insureai.insurance.domain.exception.CustomerReferenceNotFoundException;
 import com.insureai.insurance.domain.exception.DomainValidationException;
 import com.insureai.insurance.domain.exception.QuoteNotFoundException;
@@ -41,7 +44,7 @@ import com.insureai.insurance.domain.model.QuoteTypeDetails;
 
 @Service
 public class QuoteService
-    implements CreateQuoteUseCase, CreateCustomerQuoteUseCase, GetQuoteUseCase, ListQuotesUseCase {
+    implements CreateQuoteUseCase, CreateCustomerQuoteUseCase, GetQuoteUseCase, ListQuotesUseCase, MyQuotesUseCase {
     private static final Logger LOGGER = LoggerFactory.getLogger(QuoteService.class);
     public static final int MAX_PAGE_SIZE = 100;
     public static final int MAX_SEARCH_LENGTH = 80;
@@ -152,6 +155,50 @@ public class QuoteService
         return new QuotePage(content, page, size, quoteRepository.count(searchTerm, typeFilter));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public QuotePage listMine(String subject, int page, int size) {
+        if (page < 0) {
+            throw new DomainValidationException("page must be zero or greater");
+        }
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            throw new DomainValidationException("size must be between 1 and " + MAX_PAGE_SIZE);
+        }
+        Optional<CustomerProfileSnapshot> customer = customerProfileLookup.findCustomerBySubject(subject);
+        if (customer.isEmpty()) {
+            return new QuotePage(List.of(), page, size, 0);
+        }
+        String customerId = customer.get().customerId();
+        return new QuotePage(
+            quoteRepository.findPageForCustomer(customerId, (long) page * size, size),
+            page, size, quoteRepository.countForCustomer(customerId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PolicyQuote getMine(String subject, String quoteId) {
+        // A quote that exists but belongs to someone else is reported as not found, so IDs cannot be probed.
+        String customerId = customerProfileLookup.findCustomerBySubject(subject)
+            .map(CustomerProfileSnapshot::customerId)
+            .orElseThrow(() -> new QuoteNotFoundException(quoteId));
+        return quoteRepository.findByIdForCustomer(quoteId, customerId)
+            .orElseThrow(() -> new QuoteNotFoundException(quoteId));
+    }
+
+    @Override
+    @Transactional
+    public PolicyQuote createMine(String subject, CreateCustomerQuoteCommand command) {
+        CustomerProfileSnapshot customer = customerProfileLookup.findCustomerBySubject(subject)
+            .orElseThrow(CustomerProfileMissingException::new);
+        if (!customer.profileComplete()) {
+            throw new CustomerProfileMissingException();
+        }
+        return createQuoteForCustomer(new CreateCustomerQuoteCommand(
+            customer.customerId(), command.coverageType(), command.coverageAmount(), command.policyTermYears(),
+            command.paymentFrequency(), command.deductible(), command.startDate(), command.createdBy(),
+            command.details()));
+    }
+
     private PolicyQuote createQuote(
         String customerId,
         String customerNumber,
@@ -195,10 +242,20 @@ public class QuoteService
             typeDetails
         );
         PolicyQuote saved = quoteRepository.save(quote);
-        LOGGER.info(
-            "Quote created: quoteNumber={} quoteId={} customerId={} coverageType={} createdBy={}",
-            saved.quoteNumber(), saved.quoteId(), saved.customerId(), saved.coverageType(), saved.createdBy()
-        );
+        LOGGER.atInfo()
+            .setMessage("Quote created: quoteNumber={} quoteId={} customerId={} coverageType={} createdBy={}")
+            .addArgument(saved.quoteNumber())
+            .addArgument(saved.quoteId())
+            .addArgument(saved.customerId())
+            .addArgument(saved.coverageType())
+            .addArgument(saved.createdBy())
+            .addKeyValue("event.action", "quote.created")
+            .addKeyValue("quoteNumber", saved.quoteNumber())
+            .addKeyValue("quoteId", saved.quoteId())
+            .addKeyValue("customerId", saved.customerId())
+            .addKeyValue("coverageType", String.valueOf(saved.coverageType()))
+            .addKeyValue("createdBy", saved.createdBy())
+            .log();
         return saved;
     }
 

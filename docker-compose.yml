@@ -42,6 +42,13 @@ services:
       - keycloak-data:/opt/keycloak/data
       - ./docker/keycloak/themes/insure-ai:/opt/keycloak/themes/insure-ai:ro
 
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: insure-mailhog
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MAILHOG_UI_PORT:-8025}:8025"
+
 volumes:
   insure-postgres-data:
     name: insure-postgres-data

@@ -28,7 +28,11 @@ public class CustomerExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(CustomerNotFoundException.class)
     public ResponseEntity<ProblemDetail> handleNotFound(CustomerNotFoundException exception) {
-        LOGGER.info("Customer lookup found nothing: {}", exception.getMessage());
+        LOGGER.atInfo()
+            .setMessage("Customer lookup found nothing: {}")
+            .addArgument(exception.getMessage())
+            .addKeyValue("event.action", "customer.not_found")
+            .log();
         return ApiProblem.response(
             HttpStatus.NOT_FOUND,
             "Customer not found",
@@ -39,7 +43,12 @@ public class CustomerExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(CustomerValidationException.class)
     public ResponseEntity<ProblemDetail> handleDomainValidation(CustomerValidationException exception) {
-        LOGGER.warn("Customer request rejected: {}", exception.getMessage());
+        LOGGER.atWarn()
+            .setMessage("Customer request rejected: {}")
+            .addArgument(exception.getMessage())
+            .addKeyValue("event.action", "customer.rejected")
+            .addKeyValue("reason", "invalid_request")
+            .log();
         return ApiProblem.response(
             HttpStatus.BAD_REQUEST,
             "Validation failed",
@@ -50,7 +59,13 @@ public class CustomerExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(DuplicateCustomerException.class)
     public ResponseEntity<ProblemDetail> handleDuplicate(DuplicateCustomerException exception) {
-        LOGGER.warn("Duplicate customer rejected on field {}.", exception.field());
+        LOGGER.atWarn()
+            .setMessage("Duplicate customer rejected on field {}.")
+            .addArgument(exception.field())
+            .addKeyValue("event.action", "customer.rejected")
+            .addKeyValue("rejectedField", exception.field())
+            .addKeyValue("reason", "duplicate")
+            .log();
         ProblemDetail problem = ApiProblem.of(
             HttpStatus.CONFLICT,
             "Duplicate customer",
@@ -63,7 +78,12 @@ public class CustomerExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<ProblemDetail> handlePersistenceFailure(DataAccessException exception) {
-        LOGGER.error("Customer persistence failed ({}).", exception.getClass().getSimpleName());
+        LOGGER.atError()
+            .setMessage("Customer persistence failed ({}).")
+            .addArgument(exception.getClass().getSimpleName())
+            .addKeyValue("event.action", "persistence.failed")
+            .addKeyValue("error.type", exception.getClass().getSimpleName())
+            .log();
         return ApiProblem.response(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "Persistence failure",
@@ -74,7 +94,11 @@ public class CustomerExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleUnexpected(Exception exception) {
-        LOGGER.error("Unhandled exception while processing the request.", exception);
+        LOGGER.atError()
+            .setMessage("Unhandled exception while processing the request.")
+            .setCause(exception)
+            .addKeyValue("event.action", "request.failed")
+            .log();
         return ApiProblem.response(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "Internal server error",
@@ -94,7 +118,14 @@ public class CustomerExceptionHandler extends ResponseEntityExceptionHandler {
             .map(error -> new FieldViolation(error.getField(), error.getDefaultMessage()))
             .toList();
         String detail = violations.isEmpty() ? "Request validation failed" : violations.get(0).message();
-        LOGGER.warn("Customer request validation failed on fields {}.", violations.stream().map(FieldViolation::field).distinct().toList());
+        List<String> fields = violations.stream().map(FieldViolation::field).distinct().toList();
+        LOGGER.atWarn()
+            .setMessage("Customer request validation failed on fields {}.")
+            .addArgument(fields)
+            .addKeyValue("event.action", "customer.rejected")
+            .addKeyValue("reason", "validation")
+            .addKeyValue("rejectedFields", fields)
+            .log();
 
         ProblemDetail problem = ApiProblem.of(HttpStatus.BAD_REQUEST, "Validation failed", detail, "VALIDATION_FAILED");
         problem.setProperty("errors", violations);
@@ -110,7 +141,13 @@ public class CustomerExceptionHandler extends ResponseEntityExceptionHandler {
         WebRequest request
     ) {
         if (statusCode.is5xxServerError()) {
-            LOGGER.error("Request failed with status {}.", statusCode.value(), exception);
+            LOGGER.atError()
+                .setMessage("Request failed with status {}.")
+                .addArgument(statusCode.value())
+                .setCause(exception)
+                .addKeyValue("event.action", "request.failed")
+                .addKeyValue("http.response.status_code", statusCode.value())
+                .log();
         }
         if (body instanceof ProblemDetail problem) {
             HttpStatus resolved = HttpStatus.resolve(statusCode.value());

@@ -8,6 +8,7 @@ public record CustomerServiceResponseDto(
     String fullName,
     String email,
     String phone,
-    LocalDate dateOfBirth
+    LocalDate dateOfBirth,
+    Boolean profileComplete
 ) {
 }

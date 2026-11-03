@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.event.Level;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -42,16 +43,19 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             long elapsedMillis = (System.nanoTime() - startNanos) / 1_000_000;
             int status = response.getStatus();
             boolean slow = elapsedMillis >= SLOW_REQUEST_MILLIS;
-            if (status >= 500) {
-                LOGGER.error("{} {} -> {} ({} ms)", request.getMethod(), request.getRequestURI(), status, elapsedMillis);
-            } else if (status >= 400 || slow) {
-                LOGGER.warn(
-                    "{} {} -> {} ({} ms){}",
-                    request.getMethod(), request.getRequestURI(), status, elapsedMillis, slow ? " slow request" : ""
-                );
-            } else {
-                LOGGER.info("{} {} -> {} ({} ms)", request.getMethod(), request.getRequestURI(), status, elapsedMillis);
-            }
+            Level level = status >= 500 ? Level.ERROR : (status >= 400 || slow) ? Level.WARN : Level.INFO;
+            LOGGER.atLevel(level)
+                .setMessage("{} {} -> {} ({} ms){}")
+                .addArgument(request.getMethod())
+                .addArgument(request.getRequestURI())
+                .addArgument(status)
+                .addArgument(elapsedMillis)
+                .addArgument(slow ? " slow request" : "")
+                .addKeyValue("http.request.method", request.getMethod())
+                .addKeyValue("url.path", request.getRequestURI())
+                .addKeyValue("http.response.status_code", status)
+                .addKeyValue("durationMs", elapsedMillis)
+                .log();
         }
     }
 }

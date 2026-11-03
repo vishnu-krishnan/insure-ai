@@ -2,6 +2,7 @@ package com.insureai.insurance.adapter.outbound.customer;
 
 import java.net.SocketTimeoutException;
 import java.util.Objects;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,24 +79,46 @@ public class CustomerServiceHttpAdapter implements CustomerProfileLookupPort {
                 if (attempt == 1) {
                     throw exception;
                 }
-                LOGGER.warn("Customer Service lookup timed out; retrying (customerId={}).", customerId);
+                LOGGER.atWarn()
+                    .setMessage("Customer Service lookup timed out; retrying (customerId={}).")
+                    .addArgument(customerId)
+                    .addKeyValue("event.action", "customer_service.retry")
+                    .addKeyValue("reason", "timeout")
+                    .addKeyValue("customerId", customerId)
+                    .log();
             } catch (CustomerServiceUnavailableException exception) {
                 if (!exception.retryable() || attempt == 1) {
                     throw exception;
                 }
-                LOGGER.warn("Customer Service lookup failed ({}); retrying (customerId={}).", exception.getMessage(), customerId);
+                LOGGER.atWarn()
+                    .setMessage("Customer Service lookup failed ({}); retrying (customerId={}).")
+                    .addArgument(exception.getMessage())
+                    .addArgument(customerId)
+                    .addKeyValue("event.action", "customer_service.retry")
+                    .addKeyValue("reason", "unavailable")
+                    .addKeyValue("customerId", customerId)
+                    .log();
             } catch (HttpClientErrorException exception) {
-                LOGGER.warn(
-                    "Customer Service rejected the lookup with status {} (customerId={}).",
-                    exception.getStatusCode().value(), customerId
-                );
+                LOGGER.atWarn()
+                    .setMessage("Customer Service rejected the lookup with status {} (customerId={}).")
+                    .addArgument(exception.getStatusCode().value())
+                    .addArgument(customerId)
+                    .addKeyValue("event.action", "customer_service.rejected")
+                    .addKeyValue("http.response.status_code", exception.getStatusCode().value())
+                    .addKeyValue("customerId", customerId)
+                    .log();
                 throw new CustomerServiceUnavailableException(
                     "Customer Service rejected the service request",
                     exception,
                     false
                 );
             } catch (OAuth2AuthorizationException exception) {
-                LOGGER.error("Could not obtain a Customer Service access token ({}).", exception.getError().getErrorCode());
+                LOGGER.atError()
+                    .setMessage("Could not obtain a Customer Service access token ({}).")
+                    .addArgument(exception.getError().getErrorCode())
+                    .addKeyValue("event.action", "token.failed")
+                    .addKeyValue("error.code", exception.getError().getErrorCode())
+                    .log();
                 throw new CustomerServiceUnavailableException(
                     "Could not obtain Customer Service access token",
                     exception,
@@ -108,11 +131,48 @@ public class CustomerServiceHttpAdapter implements CustomerProfileLookupPort {
                     }
                     throw new CustomerServiceUnavailableException("Customer Service is unavailable", exception, true);
                 }
-                LOGGER.warn("Customer Service unreachable; retrying (customerId={}).", customerId);
+                LOGGER.atWarn()
+                    .setMessage("Customer Service unreachable; retrying (customerId={}).")
+                    .addArgument(customerId)
+                    .addKeyValue("event.action", "customer_service.retry")
+                    .addKeyValue("reason", "unreachable")
+                    .addKeyValue("customerId", customerId)
+                    .log();
             }
         }
 
         throw new IllegalStateException("Customer lookup retry loop exited unexpectedly");
+    }
+
+    @Override
+    public Optional<CustomerProfileSnapshot> findCustomerBySubject(String subject) {
+        try {
+            CustomerServiceResponseDto customer = restClient.get()
+                .uri("/api/v1/customers/by-subject/{subject}", subject)
+                .retrieve()
+                .onStatus(status -> status.value() == 404, (request, response) -> {
+                    throw new CustomerReferenceNotFoundException(subject);
+                })
+                .onStatus(HttpStatusCode::is5xxServerError, (request, response) -> {
+                    throw new CustomerServiceUnavailableException("Customer Service returned a server error", null, false);
+                })
+                .body(CustomerServiceResponseDto.class);
+            if (customer == null || customer.customerId() == null) {
+                return Optional.empty();
+            }
+            return Optional.of(new CustomerProfileSnapshot(
+                customer.customerId(), customer.fullName(), customer.dateOfBirth(), customer.customerNumber(),
+                Boolean.TRUE.equals(customer.profileComplete())));
+        } catch (CustomerReferenceNotFoundException exception) {
+            return Optional.empty();
+        } catch (ResourceAccessException exception) {
+            if (hasTimeoutCause(exception)) {
+                throw new CustomerServiceTimeoutException("Customer Service timed out", exception);
+            }
+            throw new CustomerServiceUnavailableException("Customer Service is unavailable", exception, true);
+        } catch (OAuth2AuthorizationException exception) {
+            throw new CustomerServiceUnavailableException("Could not obtain Customer Service access token", exception, false);
+        }
     }
 
     private static boolean hasTimeoutCause(Throwable throwable) {

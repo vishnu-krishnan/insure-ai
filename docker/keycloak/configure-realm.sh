@@ -44,6 +44,9 @@ BASE="${ISSUER%/realms/*}"
 REALM="${ISSUER##*/}"
 ADMIN="$BASE/admin/realms/$REALM"
 SCOPES=(quote:create quote:read customer:create customer:read)
+# Customer self-service scopes: granted to the web UI only; the backend services enforce the customer role on them.
+ME_SCOPES=(me:read me:write me:quote)
+UI_SCOPES=("${SCOPES[@]}" "${ME_SCOPES[@]}")
 ROLES=(agent customer)
 
 say() { printf '%s\n' "$*"; }
@@ -82,6 +85,14 @@ else
     mutate "set realm display name Insure AI and login theme insure-ai" kc PUT "" -d "$REALM_BRANDING"
 fi
 
+# --- self-service: forgot password, registration, MailHog SMTP ---
+REALM_SELF_SERVICE='{"resetPasswordAllowed":true,"registrationAllowed":true,"verifyEmail":true,"smtpServer":{"host":"mailhog","port":"1025","from":"noreply@insure-ai.local","fromDisplayName":"Insure AI"}}'
+if [ "$(kc GET "" | jq -c '{resetPasswordAllowed, registrationAllowed, verifyEmail, smtpServer: (.smtpServer // {} | {host, port, from, fromDisplayName})}')" = "$(printf '%s' "$REALM_SELF_SERVICE")" ]; then
+    say "exists: forgot password, registration and MailHog SMTP"
+else
+    mutate "enable forgot password, registration and email verification, SMTP via mailhog:1025" kc PUT "" -d "$REALM_SELF_SERVICE"
+fi
+
 # --- realm roles ---
 for role in "${ROLES[@]}"; do
     if kc GET "/roles/$role" >/dev/null 2>&1; then
@@ -91,8 +102,16 @@ for role in "${ROLES[@]}"; do
     fi
 done
 
+# Self-registered users get the customer role, never agent.
+DEFAULT_ROLE="default-roles-$REALM"
+if kc GET "/roles/$DEFAULT_ROLE/composites" 2>/dev/null | jq -e '.[]|select(.name=="customer")' >/dev/null; then
+    say "exists: customer in $DEFAULT_ROLE"
+else
+    mutate "add customer to $DEFAULT_ROLE" kc POST "/roles/$DEFAULT_ROLE/composites" -d "[$(kc GET /roles/customer)]"
+fi
+
 # --- client scopes ---
-for scope in "${SCOPES[@]}"; do
+for scope in "${UI_SCOPES[@]}"; do
     if [ -n "$(kc GET /client-scopes | jq -r --arg n "$scope" '.[]|select(.name==$n)|.id')" ]; then
         say "exists: client scope $scope"
     else
@@ -105,14 +124,14 @@ done
 # --- UI client ---
 CLIENT_JSON="$(jq -n --arg id "$UI_CLIENT_ID" --arg origin "$UI_ORIGIN" '{
     clientId:$id, name:"Insure AI web UI", protocol:"openid-connect", enabled:true,
-    publicClient:true, standardFlowEnabled:true, directAccessGrantsEnabled:false,
+    baseUrl:($origin + "/"), publicClient:true, standardFlowEnabled:true, directAccessGrantsEnabled:false,
     implicitFlowEnabled:false, serviceAccountsEnabled:false,
     redirectUris:[($origin + "/auth/callback")], webOrigins:[$origin],
     attributes:{"pkce.code.challenge.method":"S256","post.logout.redirect.uris":($origin + "/")}}')"
 CLIENT_UUID="$(kc GET "/clients?clientId=$UI_CLIENT_ID" | jq -r '.[0].id // empty')"
 if [ -n "$CLIENT_UUID" ]; then
-    CURRENT_ORIGINS="$(kc GET "/clients/$CLIENT_UUID" | jq -c '[.redirectUris, .webOrigins]')"
-    WANTED_ORIGINS="$(jq -nc --arg origin "$UI_ORIGIN" '[[($origin + "/auth/callback")], [$origin]]')"
+    CURRENT_ORIGINS="$(kc GET "/clients/$CLIENT_UUID" | jq -c '[.redirectUris, .webOrigins, .baseUrl]')"
+    WANTED_ORIGINS="$(jq -nc --arg origin "$UI_ORIGIN" '[[($origin + "/auth/callback")], [$origin], ($origin + "/")]')"
     if [ "$CURRENT_ORIGINS" = "$WANTED_ORIGINS" ]; then
         say "exists: client $UI_CLIENT_ID"
     else
@@ -126,7 +145,7 @@ fi
 if [ -n "$CLIENT_UUID" ]; then
     # default client scopes
     ASSIGNED="$(kc GET "/clients/$CLIENT_UUID/default-client-scopes" | jq -r '.[].name')"
-    for scope in "${SCOPES[@]}"; do
+    for scope in "${UI_SCOPES[@]}"; do
         if printf '%s\n' "$ASSIGNED" | grep -qx "$scope"; then
             say "exists: $scope assigned to $UI_CLIENT_ID"
         else

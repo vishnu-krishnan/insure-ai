@@ -6,10 +6,12 @@ import type { AuthClient, AuthUser } from './types'
 
 const SCOPES = ['openid', 'profile', 'quote:create', 'quote:read', 'customer:create', 'customer:read']
 
-function toAuthUser(user: User): AuthUser {
+export function toAuthUser(user: User): AuthUser {
   const profile = user.profile
+  const fullName = (profile.name ?? [profile.given_name, profile.family_name].filter(Boolean).join(' ')).trim()
   return {
     name: profile.preferred_username ?? profile.name ?? 'Signed-in user',
+    ...(fullName ? { fullName } : {}),
     roles: rolesFromToken(user.access_token),
   }
 }
